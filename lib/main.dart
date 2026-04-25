@@ -7,6 +7,7 @@ import 'screens/products_screen.dart';
 import 'screens/cart_screen.dart';
 import 'screens/orders_screen.dart';
 import 'screens/seller_screen.dart';
+import 'screens/profile_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -34,6 +35,11 @@ class MyApp extends StatelessWidget {
 
         // 🏪 SELLER
         '/seller': (context) => SellerScreen(),
+        
+        //ProfileScreen
+        '/profile': (context) => ProfileScreen(),
+
+        
       },
     );
   }
