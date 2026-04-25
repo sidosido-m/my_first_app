@@ -14,102 +14,146 @@ class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
-  bool loading = false;
-  bool hide = true;
+  bool isLoading = false;
+  bool obscure = true;
 
-  void msg(String text, {bool ok = false}) {
+  void showMsg(String msg, {bool success = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(text),
-        backgroundColor: ok ? Colors.green : Colors.red,
+        content: Text(msg),
+        backgroundColor: success ? Colors.green : Colors.red,
       ),
     );
   }
 
   Future<void> login() async {
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
-      msg("Fill all fields");
+      showMsg("Fill all fields ❌");
       return;
     }
 
-    setState(() => loading = true);
+    setState(() => isLoading = true);
 
     try {
-      final res = await ApiService.loginUser(
+      final result = await ApiService.loginUser(
         emailController.text.trim(),
         passwordController.text.trim(),
       );
 
-      setState(() => loading = false);
+      setState(() => isLoading = false);
 
-      if (res['token'] == null) {
-        msg(res['error'] ?? "Login failed");
+      if (result['token'] == null) {
+        showMsg(result['error'] ?? "Login failed ❌");
         return;
       }
 
-      await StorageService.saveToken(res['token']);
-      await StorageService.saveUserId(res['user']['id']);
-      await StorageService.saveRole(res['user']['role']);
+      final user = result['user'];
 
-      msg("Login success", ok: true);
+      await StorageService.saveToken(result['token']);
+      await StorageService.saveUserId(user['id']);
+      await StorageService.saveRole(user['role']);
 
-      if (res['user']['role'] == "seller") {
-        Navigator.pushReplacementNamed(context, '/seller');
+      showMsg("Login success ✅", success: true);
+
+      if (user['role'] == "seller") {
+        Navigator.pushNamedAndRemoveUntil(context, '/seller', (_) => false);
       } else {
-        Navigator.pushReplacementNamed(context, '/products');
+        Navigator.pushNamedAndRemoveUntil(context, '/products', (_) => false);
       }
 
     } catch (e) {
-      setState(() => loading = false);
-      msg("Server error");
+      setState(() => isLoading = false);
+      showMsg("Server error ❌");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Login")),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
+      backgroundColor: Colors.grey[100],
 
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(labelText: "Email"),
-            ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
 
-            TextField(
-              controller: passwordController,
-              obscureText: hide,
-              decoration: InputDecoration(
-                labelText: "Password",
-                suffixIcon: IconButton(
-                  icon: Icon(hide ? Icons.visibility : Icons.visibility_off),
-                  onPressed: () => setState(() => hide = !hide),
+              const Icon(Icons.shopping_bag,
+                  size: 80, color: Colors.deepPurple),
+
+              const SizedBox(height: 10),
+
+              const Text("Welcome Back 👋",
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+
+              const SizedBox(height: 30),
+
+              TextField(
+                controller: emailController,
+                decoration: InputDecoration(
+                  labelText: "Email",
+                  prefixIcon: const Icon(Icons.email),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 15),
 
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: loading ? null : login,
-                child: loading
-                    ? const CircularProgressIndicator()
-                    : const Text("LOGIN"),
+              TextField(
+                controller: passwordController,
+                obscureText: obscure,
+                decoration: InputDecoration(
+                  labelText: "Password",
+                  prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(obscure
+                        ? Icons.visibility
+                        : Icons.visibility_off),
+                    onPressed: () {
+                      setState(() => obscure = !obscure);
+                    },
+                  ),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
               ),
-            ),
 
-            TextButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/register');
-              },
-              child: const Text("Create account"),
-            ),
-          ],
+              const SizedBox(height: 25),
+
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: isLoading ? null : login,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text("LOGIN"),
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("Don't have an account? "),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/register');
+                    },
+                    child: const Text("Register",
+                        style: TextStyle(color: Colors.deepPurple)),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

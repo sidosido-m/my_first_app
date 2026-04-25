@@ -3,16 +3,15 @@ import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
 class ProductsScreen extends StatefulWidget {
+  const ProductsScreen({super.key});
+
   @override
   State<ProductsScreen> createState() => _ProductsScreenState();
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
-
   List products = [];
   bool isLoading = true;
-
-  final String baseUrl = "https://my-server-0xa0.onrender.com";
 
   @override
   void initState() {
@@ -20,90 +19,95 @@ class _ProductsScreenState extends State<ProductsScreen> {
     loadProducts();
   }
 
+  // 🔄 تحميل المنتجات
   Future<void> loadProducts() async {
-    try {
-      setState(() => isLoading = true);
+    setState(() => isLoading = true);
 
+    try {
       final data = await ApiService.getProducts();
 
       setState(() {
         products = data;
         isLoading = false;
       });
-
     } catch (e) {
       setState(() => isLoading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error loading products ❌")),
-      );
+      showMsg("Error loading products ❌");
     }
   }
 
+  // 🛒 إضافة للسلة
   Future<void> addToCart(int productId) async {
     String? token = await StorageService.getToken();
 
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Login first ❗")),
-      );
+      showMsg("You must login first ❌");
       return;
     }
 
     await ApiService.addToCart(token, productId);
 
+    showMsg("Added to cart 🛒", success: true);
+  }
+
+  // 🚪 تسجيل الخروج
+  Future<void> logout() async {
+    await StorageService.clearToken();
+    await StorageService.clearUserId();
+    await StorageService.clearRole();
+
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+  }
+
+  // 📢 رسالة
+  void showMsg(String msg, {bool success = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Added to cart 🛒")),
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: success ? Colors.green : Colors.red,
+      ),
     );
   }
 
-  Future<void> logout() async {
-  await StorageService.clearToken();
-  await StorageService.clearUserId();
-  await StorageService.clearRole();
+  // 🖼️ صورة المنتج
+  Widget buildImage(String? image) {
+    if (image == null || image.isEmpty) {
+      return const Icon(Icons.image, size: 80, color: Colors.grey);
+    }
 
-  if (!mounted) return;
+    return Image.network(
+      "https://my-server-0xa0.onrender.com/uploads/$image",
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) =>
+          const Icon(Icons.broken_image, size: 80),
+    );
+  }
 
-  Navigator.pushNamedAndRemoveUntil(
-    context,
-    '/login',
-    (route) => false,
-  );
-}
-  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-
       appBar: AppBar(
-  title: const Text("Products 🛒"),
-  backgroundColor: Colors.deepPurple,
-  centerTitle: true,
-  actions: [
-
-    IconButton(
-      icon: const Icon(Icons.shopping_cart),
-      onPressed: () => Navigator.pushNamed(context, '/cart'),
-    ),
-    IconButton(
-  icon: const Icon(Icons.person),
-  onPressed: () {
-    Navigator.pushNamed(context, '/profile');
-  },
-     ),
-
-    // 🟢 زر الخروج
-    IconButton(
-      icon: const Icon(Icons.logout),
-      onPressed: logout,
-    ),
-  ],
-),
+        title: const Text("Products 🛒"),
+        backgroundColor: Colors.deepPurple,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: loadProducts,
+          ),
+          IconButton(
+            icon: const Icon(Icons.shopping_cart),
+            onPressed: () =>
+                Navigator.pushNamed(context, '/cart'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: logout,
+          ),
+        ],
+      ),
 
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-
           : products.isEmpty
               ? const Center(
                   child: Text(
@@ -111,7 +115,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     style: TextStyle(fontSize: 18),
                   ),
                 )
-
               : RefreshIndicator(
                   onRefresh: loadProducts,
                   child: GridView.builder(
@@ -124,94 +127,68 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       crossAxisSpacing: 10,
                       mainAxisSpacing: 10,
                     ),
-                    itemBuilder: (context, index) {
-                      final p = products[index];
+                    itemBuilder: (context, i) {
+                      var p = products[i];
 
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
+                      return Card(
+                        shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.shade300,
-                              blurRadius: 5,
-                              offset: const Offset(0, 3),
-                            )
-                          ],
                         ),
-
+                        elevation: 4,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment:
+                              CrossAxisAlignment.stretch,
                           children: [
 
-                            // 🔥 IMAGE
+                            // 🖼️ IMAGE
                             Expanded(
                               child: ClipRRect(
                                 borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(15),
-                                ),
-                                child: p['image'] != null
-                                    ? Image.network(
-                                        "$baseUrl/uploads/${p['image']}",
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            const Center(
-                                                child: Icon(Icons.broken_image)),
-                                      )
-                                    : const Center(
-                                        child: Icon(Icons.image, size: 50),
-                                      ),
+                                    top: Radius.circular(15)),
+                                child: buildImage(p['image']),
                               ),
                             ),
 
+                            // 📦 NAME
                             Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-
-                                  // NAME
-                                  Text(
-                                    p['name'] ?? "",
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 5),
-
-                                  // PRICE
-                                  Text(
-                                    "${p['price']} DA",
-                                    style: const TextStyle(
-                                      color: Colors.green,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 8),
-
-                                  // BUTTON
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton(
-                                      onPressed: () => addToCart(p['id']),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.deepPurple,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                      ),
-                                      child: const Text("Add"),
-                                    ),
-                                  ),
-                                ],
+                              padding: const EdgeInsets.all(6),
+                              child: Text(
+                                p['name'] ?? "",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
+
+                            // 💰 PRICE
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 6),
+                              child: Text(
+                                "${p['price']} DA",
+                                style: const TextStyle(
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 5),
+
+                            // 🛒 BUTTON
+                            Padding(
+                              padding: const EdgeInsets.all(6),
+                              child: ElevatedButton(
+                                onPressed: () =>
+                                    addToCart(p['id']),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Colors.deepPurple,
+                                ),
+                                child: const Text("Add to cart"),
+                              ),
+                            )
                           ],
                         ),
                       );
