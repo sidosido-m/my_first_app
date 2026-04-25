@@ -9,7 +9,7 @@ class ProductDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String baseUrl = "http://192.168.1.44:3000";
+    final String baseUrl = "https://my-server-0xa0.onrender.com";
 
     return Scaffold(
       appBar: AppBar(

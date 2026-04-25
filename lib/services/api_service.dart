@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
 
-  static const String baseUrl = "http://192.168.1.44:3000";
+  static const String baseUrl = "https://my-server-0xa0.onrender.com";
 
   // ================= LOGIN =================
   static Future<Map<String, dynamic>> loginUser(
@@ -29,7 +29,7 @@ class ApiService {
   String role,
 ) async {
   final res = await http.post(
-    Uri.parse("http://192.168.1.44:3000/register"),
+    Uri.parse("https://my-server-0xa0.onrender.com"),
     headers: {"Content-Type": "application/json"},
     body: jsonEncode({
       "name": name,

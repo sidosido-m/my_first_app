@@ -12,7 +12,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   List products = [];
   bool isLoading = true;
 
-  final String baseUrl = "http://192.168.1.44:3000";
+  final String baseUrl = "https://my-server-0xa0.onrender.com";
 
   @override
   void initState() {

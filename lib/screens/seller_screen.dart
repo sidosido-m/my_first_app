@@ -18,7 +18,7 @@ class _SellerScreenState extends State<SellerScreen> {
   String? token;
   int? sellerId;
 
-  final String baseUrl = "http://192.168.1.44:3000";
+  final String baseUrl = "https://my-server-0xa0.onrender.com";
 
   @override
   void initState() {
