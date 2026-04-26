@@ -6,46 +6,52 @@ class ApiService {
   static const String baseUrl = "https://my-server-0xa0.onrender.com";
 
   // ================= HEADERS =================
-  static Map<String, String> jsonHeader([String? token]) => {
-        "Content-Type": "application/json",
-        if (token != null) "Authorization": "Bearer $token",
-      };
-
+  static Map<String, String> jsonHeader([String? token]) {
+  return {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    if (token != null) "Authorization": "Bearer $token",
+  };
+}
   // ================= LOGIN =================
   static Future<Map<String, dynamic>> loginUser(
-      String email, String password) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/login"),
-      headers: jsonHeader(),
-      body: jsonEncode({
-        "email": email,
-        "password": password,
-      }),
-    );
+    String email, String password) async {
+  final res = await http
+      .post(
+        Uri.parse("$baseUrl/login"),
+        headers: jsonHeader(),
+        body: jsonEncode({
+          "email": email,
+          "password": password,
+        }),
+      )
+      .timeout(const Duration(seconds: 15));
 
-    return _handleResponse(res);
-  }
+  return _safeDecode(res);
+}
 
   // ================= REGISTER =================
   static Future<Map<String, dynamic>> registerUser(
-    String name,
-    String email,
-    String password,
-    String role,
-  ) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/register"), // ✅ FIXED
-      headers: jsonHeader(),
-      body: jsonEncode({
-        "name": name,
-        "email": email,
-        "password": password,
-        "role": role,
-      }),
-    );
+  String name,
+  String email,
+  String password,
+  String role,
+) async {
+  final res = await http
+      .post(
+        Uri.parse("$baseUrl/register"),
+        headers: jsonHeader(),
+        body: jsonEncode({
+          "name": name,
+          "email": email,
+          "password": password,
+          "role": role,
+        }),
+      )
+      .timeout(const Duration(seconds: 15));
 
-    return _handleResponse(res);
-  }
+  return _safeDecode(res);
+}
 
   // ================= UPDATE PROFILE =================
   static Future<Map<String, dynamic>> updateProfile(
@@ -69,44 +75,51 @@ class ApiService {
 
   // ================= PRODUCTS =================
   static Future<List<dynamic>> getProducts() async {
-    final res = await http.get(Uri.parse("$baseUrl/products"));
-    return _handleResponse(res);
-  }
+  final res = await http
+      .get(Uri.parse("$baseUrl/products"))
+      .timeout(const Duration(seconds: 15));
+
+  final data = _safeDecode(res);
+  return data is List ? data : [];
+}
 
   // ✅ FIXED sellerId usage
   static Future<List<dynamic>> getMyProducts(int sellerId) async {
-    final res =
-        await http.get(Uri.parse("$baseUrl/products?sellerId=$sellerId"));
-    return _handleResponse(res);
-  }
+  final res = await http
+      .get(Uri.parse("$baseUrl/products?sellerId=$sellerId"))
+      .timeout(const Duration(seconds: 15));
+
+  final data = _safeDecode(res);
+  return data is List ? data : [];
+}
 
   // ================= ADD PRODUCT =================
   static Future<bool> addProductWithImage({
-    required String name,
-    required double price,
-    required int sellerId,
-    required String token,
-    required File imageFile,
-  }) async {
-    var request = http.MultipartRequest(
-      'POST',
-      Uri.parse("$baseUrl/products"),
-    );
+  required String name,
+  required double price,
+  required int sellerId,
+  required String token,
+  required File imageFile,
+}) async {
+  var request = http.MultipartRequest(
+    'POST',
+    Uri.parse("$baseUrl/products"),
+  );
 
-    request.fields['name'] = name;
-    request.fields['price'] = price.toString();
-    request.fields['sellerId'] = sellerId.toString();
+  request.fields['name'] = name;
+  request.fields['price'] = price.toString();
+  request.fields['seller_id'] = sellerId.toString();
 
-    request.files.add(
-      await http.MultipartFile.fromPath('image', imageFile.path),
-    );
+  request.files.add(
+    await http.MultipartFile.fromPath('image', imageFile.path),
+  );
 
-    request.headers['Authorization'] = "Bearer $token";
+  request.headers['Authorization'] = "Bearer $token";
 
-    var res = await request.send();
+  final response = await request.send();
 
-    return res.statusCode == 200 || res.statusCode == 201;
-  }
+  return response.statusCode == 200 || response.statusCode == 201;
+}
 
   // ================= DELETE PRODUCT =================
   static Future<void> deleteProduct(String token, int id) async {
@@ -139,18 +152,17 @@ class ApiService {
 
   // ================= CART =================
   static Future<void> addToCart(String token, int productId) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/cart"),
-      headers: jsonHeader(token),
-      body: jsonEncode({
-        "product_id": productId,
-        "quantity": 1,
-      }),
-    );
-
-    _handleResponse(res);
-  }
-
+  await http
+      .post(
+        Uri.parse("$baseUrl/cart"),
+        headers: jsonHeader(token),
+        body: jsonEncode({
+          "product_id": productId,
+          "quantity": 1,
+        }),
+      )
+      .timeout(const Duration(seconds: 15));
+}
   static Future<List<dynamic>> getCart(String token) async {
     final res = await http.get(
       Uri.parse("$baseUrl/cart"),
@@ -209,17 +221,16 @@ class ApiService {
   }
 
   // ================= SAFE RESPONSE HANDLER =================
-  static dynamic _handleResponse(http.Response res) {
-    try {
-      final data = jsonDecode(res.body);
+ static dynamic _safeDecode(http.Response res) {
+  try {
+    final body = res.body.isNotEmpty ? jsonDecode(res.body) : null;
 
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        return data;
-      } else {
-        throw Exception(data);
-      }
-    } catch (e) {
-      throw Exception("API Error: $e");
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return body;
+    } else {
+      throw Exception(body ?? "Unknown API error");
     }
+  } catch (e) {
+    throw Exception("API parsing error: $e");
   }
 }
