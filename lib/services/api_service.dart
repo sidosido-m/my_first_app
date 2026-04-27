@@ -7,53 +7,82 @@ class ApiService {
 
   // ================= HEADERS =================
   static Map<String, String> jsonHeader([String? token]) {
-  return {
-    "Content-Type": "application/json",
-    "Accept": "application/json",
-    if (token != null) "Authorization": "Bearer $token",
-  };
-}
+    return {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      if (token != null) "Authorization": "Bearer $token",
+    };
+  }
+
   // ================= LOGIN =================
   static Future<Map<String, dynamic>> loginUser(
-    String email, String password) async {
-  final res = await http
-      .post(
-        Uri.parse("$baseUrl/login"),
-        headers: jsonHeader(),
-        body: jsonEncode({
-          "email": email,
-          "password": password,
-        }),
-      )
-      .timeout(const Duration(seconds: 15));
+    String email,
+    String password,
+  ) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/login"),
+      headers: jsonHeader(),
+      body: jsonEncode({
+        "email": email,
+        "password": password,
+      }),
+    );
 
-  return _safeDecode(res);
-}
+    return _safeDecode(res);
+  }
 
   // ================= REGISTER =================
   static Future<Map<String, dynamic>> registerUser(
-  String name,
-  String email,
-  String password,
-  String role,
-) async {
-  final res = await http
-      .post(
-        Uri.parse("$baseUrl/register"),
-        headers: jsonHeader(),
-        body: jsonEncode({
-          "name": name,
-          "email": email,
-          "password": password,
-          "role": role,
-        }),
-      )
-      .timeout(const Duration(seconds: 15));
+    String name,
+    String email,
+    String password,
+    String role,
+  ) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/register"),
+      headers: jsonHeader(),
+      body: jsonEncode({
+        "name": name,
+        "email": email,
+        "password": password,
+        "role": role,
+      }),
+    );
 
-  return _safeDecode(res);
-}
+    return _safeDecode(res);
+  }
 
-  // ================= UPDATE PROFILE =================
+  // ================= VERIFY OTP =================
+  static Future<Map<String, dynamic>> verifyOtp(
+    String email,
+    String otp,
+  ) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/verify-otp"),
+      headers: jsonHeader(),
+      body: jsonEncode({
+        "email": email,
+        "otp": otp,
+      }),
+    );
+
+    return _safeDecode(res);
+  }
+
+  // ================= RESEND OTP =================
+  static Future<Map<String, dynamic>> resendOtp(String email) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/resend-otp"),
+      headers: jsonHeader(),
+      body: jsonEncode({
+        "email": email,
+      }),
+    );
+
+    return _safeDecode(res);
+  }
+
+  // ================= PROFILE =================
   static Future<Map<String, dynamic>> updateProfile(
     String token,
     String name,
@@ -66,69 +95,67 @@ class ApiService {
       body: jsonEncode({
         "name": name,
         "email": email,
-        "password": password,
+        if (password != null && password.isNotEmpty)
+          "password": password,
       }),
     );
 
-    return _handleResponse(res);
+    return _safeDecode(res);
   }
 
   // ================= PRODUCTS =================
   static Future<List<dynamic>> getProducts() async {
-  final res = await http
-      .get(Uri.parse("$baseUrl/products"))
-      .timeout(const Duration(seconds: 15));
+    final res = await http.get(Uri.parse("$baseUrl/products"));
 
-  final data = _safeDecode(res);
-  return data is List ? data : [];
-}
+    final data = _safeDecode(res);
+    return data is List ? data : [];
+  }
 
-  // ✅ FIXED sellerId usage
   static Future<List<dynamic>> getMyProducts(int sellerId) async {
-  final res = await http
-      .get(Uri.parse("$baseUrl/products?sellerId=$sellerId"))
-      .timeout(const Duration(seconds: 15));
+    final res = await http.get(
+      Uri.parse("$baseUrl/products?sellerId=$sellerId"),
+    );
 
-  final data = _safeDecode(res);
-  return data is List ? data : [];
-}
+    final data = _safeDecode(res);
+    return data is List ? data : [];
+  }
 
   // ================= ADD PRODUCT =================
   static Future<bool> addProductWithImage({
-  required String name,
-  required double price,
-  required int sellerId,
-  required String token,
-  required File imageFile,
-}) async {
-  var request = http.MultipartRequest(
-    'POST',
-    Uri.parse("$baseUrl/products"),
-  );
+    required String name,
+    required double price,
+    required int sellerId,
+    required String token,
+    required File imageFile,
+  }) async {
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse("$baseUrl/products"),
+    );
 
-  request.fields['name'] = name;
-  request.fields['price'] = price.toString();
-  request.fields['seller_id'] = sellerId.toString();
+    request.fields['name'] = name;
+    request.fields['price'] = price.toString();
+    request.fields['seller_id'] = sellerId.toString();
 
-  request.files.add(
-    await http.MultipartFile.fromPath('image', imageFile.path),
-  );
+    request.files.add(
+      await http.MultipartFile.fromPath('image', imageFile.path),
+    );
 
-  request.headers['Authorization'] = "Bearer $token";
+    request.headers['Authorization'] = "Bearer $token";
 
-  final response = await request.send();
+    final response = await request.send();
 
-  return response.statusCode == 200 || response.statusCode == 201;
-}
+    return response.statusCode == 200 || response.statusCode == 201;
+  }
 
   // ================= DELETE PRODUCT =================
-  static Future<void> deleteProduct(String token, int id) async {
+  static Future<bool> deleteProduct(String token, int id) async {
     final res = await http.delete(
       Uri.parse("$baseUrl/products/$id"),
       headers: jsonHeader(token),
     );
 
-    _handleResponse(res);
+    return res.statusCode >= 200 && res.statusCode < 300;
   }
 
   // ================= UPDATE PRODUCT =================
@@ -147,29 +174,31 @@ class ApiService {
       }),
     );
 
-    _handleResponse(res);
+    _safeDecode(res);
   }
 
   // ================= CART =================
-  static Future<void> addToCart(String token, int productId) async {
-  await http
-      .post(
-        Uri.parse("$baseUrl/cart"),
-        headers: jsonHeader(token),
-        body: jsonEncode({
-          "product_id": productId,
-          "quantity": 1,
-        }),
-      )
-      .timeout(const Duration(seconds: 15));
-}
+  static Future<bool> addToCart(String token, int productId) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/cart"),
+      headers: jsonHeader(token),
+      body: jsonEncode({
+        "product_id": productId,
+        "quantity": 1,
+      }),
+    );
+
+    return res.statusCode >= 200 && res.statusCode < 300;
+  }
+
   static Future<List<dynamic>> getCart(String token) async {
     final res = await http.get(
       Uri.parse("$baseUrl/cart"),
       headers: jsonHeader(token),
     );
 
-    return _handleResponse(res);
+    final data = _safeDecode(res);
+    return data is List ? data : [];
   }
 
   static Future<void> checkout(String token) async {
@@ -178,36 +207,7 @@ class ApiService {
       headers: jsonHeader(token),
     );
 
-    _handleResponse(res);
-  }
-
-  // ================= OTP =================
-  static Future<Map<String, dynamic>> verifyOtp(
-    String email,
-    String otp,
-  ) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/verify-otp"),
-      headers: jsonHeader(),
-      body: jsonEncode({
-        "email": email,
-        "otp": otp,
-      }),
-    );
-
-    return _handleResponse(res);
-  }
-
-  static Future<Map<String, dynamic>> resendOtp(String email) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/resend-otp"),
-      headers: jsonHeader(),
-      body: jsonEncode({
-        "email": email,
-      }),
-    );
-
-    return _handleResponse(res);
+    _safeDecode(res);
   }
 
   // ================= ORDERS =================
@@ -217,20 +217,34 @@ class ApiService {
       headers: jsonHeader(token),
     );
 
-    return _handleResponse(res);
+    final data = _safeDecode(res);
+    return data is List ? data : [];
   }
 
-  // ================= SAFE RESPONSE HANDLER =================
- static dynamic _safeDecode(http.Response res) {
-  try {
-    final body = res.body.isNotEmpty ? jsonDecode(res.body) : null;
+  static Future<Map<String, dynamic>> getOrderById(
+    String token,
+    int id,
+  ) async {
+    final res = await http.get(
+      Uri.parse("$baseUrl/orders/$id"),
+      headers: jsonHeader(token),
+    );
 
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      return body;
-    } else {
-      throw Exception(body ?? "Unknown API error");
+    return _safeDecode(res);
+  }
+
+  // ================= SAFE HANDLER =================
+  static dynamic _safeDecode(http.Response res) {
+    try {
+      final body = res.body.isNotEmpty ? jsonDecode(res.body) : null;
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return body;
+      } else {
+        throw Exception(body ?? "Server Error");
+      }
+    } catch (e) {
+      throw Exception("API Error: $e");
     }
-  } catch (e) {
-    throw Exception("API parsing error: $e");
   }
 }

@@ -10,67 +10,70 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
-  bool isLoading = false;
-  bool obscure = true;
+  bool loading = false;
+  bool hidePassword = true;
 
-  void showMsg(String msg, {bool success = false}) {
+  void showMsg(String text, {bool ok = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
-        backgroundColor: success ? Colors.green : Colors.red,
+        content: Text(text),
+        backgroundColor: ok ? Colors.green : Colors.red,
       ),
     );
   }
 
   Future<void> login() async {
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
-      showMsg("Fill all fields ❌");
+      showMsg("Please fill all fields ❌");
       return;
     }
 
-    setState(() => isLoading = true);
+    setState(() => loading = true);
 
     try {
-      final result = await ApiService.loginUser(
+      final res = await ApiService.loginUser(
         emailController.text.trim(),
         passwordController.text.trim(),
       );
 
-      setState(() => isLoading = false);
+      setState(() => loading = false);
 
-      if (result['token'] == null) {
-        showMsg(result['error'] ?? "Login failed ❌");
+      if (res['token'] == null) {
+        showMsg(res['error'] ?? "Login failed ❌");
         return;
       }
 
-      final user = result['user'];
+      await StorageService.saveToken(res['token']);
+      await StorageService.saveUserId(res['user']['id']);
+      await StorageService.saveRole(res['user']['role']);
 
-      await StorageService.saveToken(result['token']);
-      await StorageService.saveUserId(user['id']);
-      await StorageService.saveRole(user['role']);
+      showMsg("Welcome 👋", ok: true);
 
-      showMsg("Login success ✅", success: true);
-
-      if (user['role'] == "seller") {
-        Navigator.pushNamedAndRemoveUntil(context, '/seller', (_) => false);
+      if (res['user']['role'] == "seller") {
+        Navigator.pushReplacementNamed(context, '/seller');
       } else {
-        Navigator.pushNamedAndRemoveUntil(context, '/products', (_) => false);
+        Navigator.pushReplacementNamed(context, '/products');
       }
-
     } catch (e) {
-      setState(() => isLoading = false);
+      setState(() => loading = false);
       showMsg("Server error ❌");
     }
   }
 
   @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.deepPurple,
 
       body: Center(
         child: SingleChildScrollView(
@@ -78,79 +81,139 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             children: [
 
-              const Icon(Icons.shopping_bag,
-                  size: 80, color: Colors.deepPurple),
+              // 🔥 ICON / TITLE
+              const Icon(
+                Icons.storefront,
+                size: 80,
+                color: Colors.white,
+              ),
 
               const SizedBox(height: 10),
 
-              const Text("Welcome Back 👋",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const Text(
+                "Marketplace Login",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
 
               const SizedBox(height: 30),
 
-              TextField(
-                controller: emailController,
-                decoration: InputDecoration(
-                  labelText: "Email",
-                  prefixIcon: const Icon(Icons.email),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
+              // 🧾 CARD
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-              ),
+                child: Column(
+                  children: [
 
-              const SizedBox(height: 15),
+                    // EMAIL
+                    TextField(
+                      controller: emailController,
+                      decoration: const InputDecoration(
+                        labelText: "Email",
+                        prefixIcon: Icon(Icons.email),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
 
-              TextField(
-                controller: passwordController,
-                obscureText: obscure,
-                decoration: InputDecoration(
-                  labelText: "Password",
-                  prefixIcon: const Icon(Icons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(obscure
-                        ? Icons.visibility
-                        : Icons.visibility_off),
-                    onPressed: () {
-                      setState(() => obscure = !obscure);
-                    },
-                  ),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    const SizedBox(height: 15),
+
+                    // PASSWORD
+                    TextField(
+                      controller: passwordController,
+                      obscureText: hidePassword,
+                      decoration: InputDecoration(
+                        labelText: "Password",
+                        prefixIcon: const Icon(Icons.lock),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            hidePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              hidePassword = !hidePassword;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // LOGIN BUTTON
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: loading ? null : login,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurple,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: loading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : const Text(
+                                "LOGIN",
+                                style: TextStyle(fontSize: 16),
+                              ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    // OR LINE
+                    Row(
+                      children: const [
+                        Expanded(child: Divider()),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          child: Text("OR"),
+                        ),
+                        Expanded(child: Divider()),
+                      ],
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    // CREATE ACCOUNT BUTTON (IMPORTANT)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/register');
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(
+                            color: Colors.deepPurple,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          "CREATE NEW ACCOUNT",
+                          style: TextStyle(
+                            color: Colors.deepPurple,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-
-              const SizedBox(height: 25),
-
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("LOGIN"),
-                ),
-              ),
-
-              const SizedBox(height: 15),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("Don't have an account? "),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/register');
-                    },
-                    child: const Text("Register",
-                        style: TextStyle(color: Colors.deepPurple)),
-                  ),
-                ],
               ),
             ],
           ),

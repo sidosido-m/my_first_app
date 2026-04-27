@@ -7,7 +7,6 @@ import 'screens/products_screen.dart';
 import 'screens/cart_screen.dart';
 import 'screens/orders_screen.dart';
 import 'screens/seller_screen.dart';
-import 'screens/profile_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -21,25 +20,36 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
 
+      // ================= START =================
       initialRoute: '/',
 
+      // ================= ROUTES =================
       routes: {
-        '/': (context) => SplashScreen(),
-        '/login': (context) => LoginScreen(),
-        '/register': (context) => RegisterScreen(),
+        '/': (context) => const SplashScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
 
-        // 🛒 CUSTOMER
-        '/products': (context) => ProductsScreen(),
-        '/cart': (context) => CartScreen(),
-        '/orders': (context) => OrdersScreen(),
+        // CUSTOMER
+        '/products': (context) => const ProductsScreen(),
+        '/cart': (context) => const CartScreen(),
+        '/orders': (context) => const OrdersScreen(),
 
-        // 🏪 SELLER
-        '/seller': (context) => SellerScreen(),
-        
-        //ProfileScreen
-        '/profile': (context) => ProfileScreen(),
+        // SELLER
+        '/seller': (context) => const SellerScreen(),
+      },
 
-        
+      // ================= ERROR HANDLING =================
+      onUnknownRoute: (settings) {
+        return MaterialPageRoute(
+          builder: (context) => const Scaffold(
+            body: Center(
+              child: Text(
+                "404 - Page Not Found",
+                style: TextStyle(fontSize: 20),
+              ),
+            ),
+          ),
+        );
       },
     );
   }

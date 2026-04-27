@@ -12,108 +12,78 @@ class SellerScreen extends StatefulWidget {
 
 class _SellerScreenState extends State<SellerScreen> {
   List products = [];
-  bool isLoading = true;
-  bool isActionLoading = false;
+  bool loading = true;
 
   String? token;
   int? sellerId;
 
+  // ❌ لا تستخدم IP محلي في production
   final String baseUrl = "https://my-server-0xa0.onrender.com";
 
   @override
   void initState() {
     super.initState();
-    initData();
+    init();
   }
 
-  // ================= INIT =================
-  Future<void> initData() async {
+  Future<void> init() async {
     token = await StorageService.getToken();
     sellerId = await StorageService.getUserId();
 
-    if (sellerId == null) {
-      setState(() => isLoading = false);
-      return;
+    if (sellerId != null) {
+      await fetchProducts();
+    } else {
+      setState(() => loading = false);
     }
-
-    await loadProducts();
   }
 
-  // ================= LOAD =================
-  Future<void> loadProducts() async {
+  Future<void> fetchProducts() async {
     try {
-      setState(() => isLoading = true);
-
       final data = await ApiService.getMyProducts(sellerId!);
 
       setState(() {
         products = data;
-        isLoading = false;
+        loading = false;
       });
     } catch (e) {
-      setState(() => isLoading = false);
+      setState(() => loading = false);
     }
   }
 
-  // ================= DELETE =================
   Future<void> deleteProduct(int id) async {
-    final confirm = await showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Delete Product"),
-        content: const Text("Are you sure you want to delete this product?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Delete"),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
     try {
-      setState(() => isActionLoading = true);
-
       await ApiService.deleteProduct(token!, id);
 
-      await loadProducts();
-
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Product deleted 🗑")),
+        const SnackBar(content: Text("Deleted ✔️")),
       );
-    } catch (e) {
+
+      fetchProducts();
+    } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Delete failed ❌")),
       );
-    } finally {
-      setState(() => isActionLoading = false);
     }
   }
 
-  // ================= EDIT =================
-  void editProduct(dynamic product) {
-    final nameController = TextEditingController(text: product['name']);
-    final priceController = TextEditingController(text: product['price'].toString());
+  void editProduct(dynamic p) {
+    final nameCtrl = TextEditingController(text: p['name']);
+    final priceCtrl =
+        TextEditingController(text: p['price'].toString());
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Edit Product ✏️"),
+        title: const Text("Edit Product"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: nameController,
+              controller: nameCtrl,
               decoration: const InputDecoration(labelText: "Name"),
             ),
             TextField(
-              controller: priceController,
+              controller: priceCtrl,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: "Price"),
             ),
@@ -126,46 +96,37 @@ class _SellerScreenState extends State<SellerScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              try {
-                await ApiService.updateProduct(
-                  token!,
-                  product['id'],
-                  nameController.text,
-                  double.parse(priceController.text),
-                );
+              await ApiService.updateProduct(
+                token!,
+                p['id'],
+                nameCtrl.text,
+                double.parse(priceCtrl.text),
+              );
 
-                Navigator.pop(context);
-                loadProducts();
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Updated ✔️")),
-                );
-              } catch (e) {
-                Navigator.pop(context);
-              }
+              Navigator.pop(context);
+              fetchProducts();
             },
             child: const Text("Save"),
-          )
+          ),
         ],
       ),
     );
   }
 
-  // ================= LOGOUT =================
   Future<void> logout() async {
     await StorageService.clearToken();
     await StorageService.clearUserId();
+    await StorageService.clearRole();
 
     if (!mounted) return;
 
     Navigator.pushNamedAndRemoveUntil(
       context,
       '/login',
-      (route) => false,
+      (_) => false,
     );
   }
 
-  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -174,8 +135,8 @@ class _SellerScreenState extends State<SellerScreen> {
         backgroundColor: Colors.deepPurple,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
             onPressed: logout,
+            icon: const Icon(Icons.logout),
           )
         ],
       ),
@@ -195,53 +156,96 @@ class _SellerScreenState extends State<SellerScreen> {
             ),
           );
 
-          if (result == true) loadProducts();
+          if (result == true) fetchProducts();
         },
         child: const Icon(Icons.add),
       ),
 
-      body: isLoading
+      body: loading
           ? const Center(child: CircularProgressIndicator())
           : products.isEmpty
-              ? const Center(child: Text("No products yet 😢"))
+              ? const Center(
+                  child: Text("No products yet 😢"),
+                )
               : RefreshIndicator(
-                  onRefresh: loadProducts,
+                  onRefresh: fetchProducts,
                   child: ListView.builder(
                     itemCount: products.length,
-                    itemBuilder: (context, index) {
-                      final p = products[index];
+                    itemBuilder: (context, i) {
+                      final p = products[i];
 
                       return Card(
                         margin: const EdgeInsets.all(10),
-                        child: ListTile(
-
-                          leading: p['image'] != null
-                              ? Image.network(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (p['image'] != null)
+                              ClipRRect(
+                                borderRadius:
+                                    const BorderRadius.vertical(
+                                  top: Radius.circular(12),
+                                ),
+                                child: Image.network(
                                   "$baseUrl/uploads/${p['image']}",
-                                  width: 50,
-                                  height: 50,
+                                  height: 160,
+                                  width: double.infinity,
                                   fit: BoxFit.cover,
-                                )
-                              : const Icon(Icons.image),
-
-                          title: Text(p['name']),
-                          subtitle: Text("${p['price']} DA"),
-
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-
-                              IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.blue),
-                                onPressed: () => editProduct(p),
+                                ),
                               ),
 
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () => deleteProduct(p['id']),
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    p['name'] ?? "",
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    "${p['price']} DA",
+                                    style: const TextStyle(
+                                      color: Colors.green,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.end,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit,
+                                          color: Colors.blue,
+                                        ),
+                                        onPressed: () =>
+                                            editProduct(p),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.red,
+                                        ),
+                                        onPressed: () =>
+                                            deleteProduct(p['id']),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            )
+                          ],
                         ),
                       );
                     },

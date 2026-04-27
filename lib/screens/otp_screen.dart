@@ -23,7 +23,9 @@ class OtpScreen extends StatefulWidget {
 class _OtpScreenState extends State<OtpScreen> {
   final otpController = TextEditingController();
 
-  bool isLoading = false;
+  bool loading = false;
+  bool resendLoading = false;
+
   bool canResend = false;
   int timer = 60;
   Timer? countdown;
@@ -46,68 +48,72 @@ class _OtpScreenState extends State<OtpScreen> {
         });
         t.cancel();
       } else {
-        setState(() {
-          timer--;
-        });
+        setState(() => timer--);
       }
     });
   }
 
-  void showMsg(String msg, {bool success = false}) {
+  void msg(String text, {bool ok = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
-        backgroundColor: success ? Colors.green : Colors.red,
+        content: Text(text),
+        backgroundColor: ok ? Colors.green : Colors.red,
       ),
     );
   }
 
-  // ✅ VERIFY OTP
+  // ================= VERIFY OTP =================
   Future<void> verifyOtp() async {
     if (otpController.text.isEmpty) {
-      showMsg("Enter OTP ❌");
+      msg("Enter OTP");
       return;
     }
 
-    setState(() => isLoading = true);
+    setState(() => loading = true);
 
-    final result = await ApiService.verifyOtp(
-      widget.email,
-      otpController.text.trim(),
-    );
-
-    setState(() => isLoading = false);
-
-    if (result['success'] == true) {
-      showMsg("Verified ✅", success: true);
-
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/login',
-        (route) => false,
+    try {
+      final result = await ApiService.verifyOtp(
+        widget.email,
+        otpController.text.trim(),
       );
-    } else {
-      showMsg(result['error'] ?? "Wrong OTP ❌");
+
+      setState(() => loading = false);
+
+      if (result['success'] == true) {
+        msg("Verified successfully", ok: true);
+
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/login',
+          (route) => false,
+        );
+      } else {
+        msg(result['error'] ?? "Invalid OTP");
+      }
+    } catch (e) {
+      setState(() => loading = false);
+      msg("Server error");
     }
   }
 
-  // ✅ RESEND OTP (احترافي)
+  // ================= RESEND OTP (FIXED) =================
   Future<void> resendOtp() async {
     if (!canResend) return;
 
-    setState(() => isLoading = true);
+    setState(() => resendLoading = true);
 
-    await ApiService.registerUser(
-      widget.name,
-      widget.email,
-      widget.password,
-      widget.role,
-    );
+    try {
+      // 🔥 الصحيح: إعادة إرسال OTP عبر endpoint خاص
+      await ApiService.resendOtp(widget.email);
 
-    setState(() => isLoading = false);
+      msg("OTP sent again", ok: true);
 
-    showMsg("OTP resent 📩", success: true);
-    startTimer();
+      startTimer();
+    } catch (e) {
+      msg("Failed to resend OTP");
+    }
+
+    setState(() => resendLoading = false);
   }
 
   @override
@@ -134,14 +140,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
             const SizedBox(height: 20),
 
-            const Text("Enter OTP sent to"),
-            Text(
-              widget.email,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.deepPurple,
-              ),
-            ),
+            Text("OTP sent to ${widget.email}"),
 
             const SizedBox(height: 30),
 
@@ -160,8 +159,8 @@ class _OtpScreenState extends State<OtpScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: isLoading ? null : verifyOtp,
-                child: isLoading
+                onPressed: loading ? null : verifyOtp,
+                child: loading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text("VERIFY"),
               ),
@@ -172,14 +171,18 @@ class _OtpScreenState extends State<OtpScreen> {
             Text(
               canResend
                   ? "You can resend OTP now"
-                  : "Resend OTP in $timer s",
+                  : "Resend in $timer s",
             ),
 
             const SizedBox(height: 10),
 
             TextButton(
-              onPressed: canResend ? resendOtp : null,
-              child: const Text("Resend OTP"),
+              onPressed: canResend && !resendLoading
+                  ? resendOtp
+                  : null,
+              child: resendLoading
+                  ? const CircularProgressIndicator()
+                  : const Text("Resend OTP"),
             ),
           ],
         ),

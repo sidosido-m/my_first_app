@@ -2,14 +2,78 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
-class ProductDetailsScreen extends StatelessWidget {
+class ProductDetailsScreen extends StatefulWidget {
   final dynamic product;
 
   const ProductDetailsScreen({super.key, required this.product});
 
   @override
+  State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
+}
+
+class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
+  bool loadingCart = false;
+  bool loadingBuy = false;
+
+  final String baseUrl = "https://my-server-0xa0.onrender.com";
+
+  void msg(String text, {bool ok = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(text),
+        backgroundColor: ok ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
+  // ================= ADD TO CART =================
+  Future<void> addToCart() async {
+    setState(() => loadingCart = true);
+
+    try {
+      final token = await StorageService.getToken();
+
+      if (token == null) {
+        msg("Please login first");
+        return;
+      }
+
+      await ApiService.addToCart(token, widget.product['id']);
+
+      msg("Added to cart 🛒", ok: true);
+    } catch (e) {
+      msg("Failed to add to cart");
+    }
+
+    setState(() => loadingCart = false);
+  }
+
+  // ================= BUY NOW =================
+  Future<void> buyNow() async {
+    setState(() => loadingBuy = true);
+
+    try {
+      final token = await StorageService.getToken();
+
+      if (token == null) {
+        msg("Please login first");
+        return;
+      }
+
+      await ApiService.addToCart(token, widget.product['id']);
+      await ApiService.checkout(token);
+
+      msg("Order placed successfully 🎉", ok: true);
+    } catch (e) {
+      msg("Purchase failed");
+    }
+
+    setState(() => loadingBuy = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final String baseUrl = "https://my-server-0xa0.onrender.com";
+    final product = widget.product;
 
     return Scaffold(
       appBar: AppBar(
@@ -17,112 +81,95 @@ class ProductDetailsScreen extends StatelessWidget {
         backgroundColor: Colors.deepPurple,
       ),
 
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
 
-          // IMAGE
-          SizedBox(
-            height: 250,
-            width: double.infinity,
-            child: product['image'] != null
-                ? Image.network(
-                    "$baseUrl/uploads/${product['image']}",
-                    fit: BoxFit.cover,
-                  )
-                : const Icon(Icons.image, size: 100),
-          ),
-
-          const SizedBox(height: 10),
-
-          // NAME
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Text(
-              product['name'],
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+            // ================= IMAGE =================
+            SizedBox(
+              height: 280,
+              width: double.infinity,
+              child: product['image'] != null
+                  ? Image.network(
+                      "$baseUrl/uploads/${product['image']}",
+                      fit: BoxFit.cover,
+                    )
+                  : const Center(child: Icon(Icons.image, size: 100)),
             ),
-          ),
 
-          // PRICE
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text(
-              "${product['price']} DA",
-              style: const TextStyle(
-                fontSize: 18,
-                color: Colors.green,
-              ),
-            ),
-          ),
+            const SizedBox(height: 15),
 
-          const SizedBox(height: 20),
-
-          // BUTTONS
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              children: [
-
-                // ADD TO CART
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      String? token =
-                          await StorageService.getToken();
-
-                      await ApiService.addToCart(
-                        token!,
-                        product['id'],
-                      );
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Added to cart 🛒"),
-                        ),
-                      );
-                    },
-                    child: const Text("Add to Cart"),
-                  ),
+            // ================= NAME =================
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                product['name'] ?? "",
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
+            ),
 
-                const SizedBox(height: 10),
+            // ================= PRICE =================
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                "${product['price']} DA",
+                style: const TextStyle(
+                  fontSize: 20,
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
 
-                // BUY NOW
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
+            const SizedBox(height: 30),
+
+            // ================= BUTTONS =================
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+
+                  // ADD TO CART
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: loadingCart ? null : addToCart,
+                      child: loadingCart
+                          ? const CircularProgressIndicator(
+                              color: Colors.white,
+                            )
+                          : const Text("Add to Cart 🛒"),
                     ),
-                    onPressed: () async {
-                      String? token =
-                          await StorageService.getToken();
-
-                      await ApiService.addToCart(
-                        token!,
-                        product['id'],
-                      );
-
-                      await ApiService.checkout(token);
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Order placed ✅"),
-                        ),
-                      );
-                    },
-                    child: const Text("Buy Now"),
                   ),
-                ),
-              ],
+
+                  const SizedBox(height: 10),
+
+                  // BUY NOW
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                      ),
+                      onPressed: loadingBuy ? null : buyNow,
+                      child: loadingBuy
+                          ? const CircularProgressIndicator(
+                              color: Colors.white,
+                            )
+                          : const Text("Buy Now ⚡"),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

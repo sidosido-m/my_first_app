@@ -10,7 +10,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-
   final nameController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
@@ -19,7 +18,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int? userId;
   String? role;
 
-  bool isLoading = false;
+  bool loading = false;
+  bool isFetching = true;
 
   @override
   void initState() {
@@ -32,38 +32,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     userId = await StorageService.getUserId();
     role = await StorageService.getRole();
 
-    setState(() {});
+    setState(() {
+      isFetching = false;
+    });
+  }
+
+  void showMsg(String msg, {bool ok = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: ok ? Colors.green : Colors.red,
+      ),
+    );
   }
 
   Future<void> updateProfile() async {
     if (token == null) return;
 
-    setState(() => isLoading = true);
+    if (nameController.text.isEmpty || emailController.text.isEmpty) {
+      showMsg("Fill required fields ❌");
+      return;
+    }
+
+    setState(() => loading = true);
 
     try {
-      final res = await ApiService.updateProfile(
+      await ApiService.updateProfile(
         token!,
-        nameController.text,
-        emailController.text,
-        passwordController.text.isEmpty
+        nameController.text.trim(),
+        emailController.text.trim(),
+        passwordController.text.trim().isEmpty
             ? null
-            : passwordController.text,
+            : passwordController.text.trim(),
       );
 
-      setState(() => isLoading = false);
+      setState(() => loading = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Profile updated ✔️")),
-      );
-
-      Navigator.pop(context);
-
+      showMsg("Profile updated ✔️", ok: true);
     } catch (e) {
-      setState(() => isLoading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error updating ❌")),
-      );
+      setState(() => loading = false);
+      showMsg("Update failed ❌");
     }
   }
 
@@ -72,69 +80,109 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await StorageService.clearUserId();
     await StorageService.clearRole();
 
-    Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/login',
+      (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Edit Profile ✏️"),
+        title: const Text("My Profile 👤"),
         backgroundColor: Colors.deepPurple,
       ),
+      body: isFetching
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
 
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
+                  const CircleAvatar(
+                    radius: 45,
+                    backgroundColor: Colors.deepPurple,
+                    child: Icon(Icons.person, size: 50, color: Colors.white),
+                  ),
 
-            const Icon(Icons.person, size: 80, color: Colors.deepPurple),
+                  const SizedBox(height: 20),
 
-            const SizedBox(height: 20),
+                  Text(
+                    "Role: ${role ?? 'user'}",
+                    style: const TextStyle(fontSize: 16),
+                  ),
 
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: "Name"),
-            ),
+                  const SizedBox(height: 20),
 
-            TextField(
-              controller: emailController,
-              decoration: const InputDecoration(labelText: "Email"),
-            ),
+                  // NAME
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: "Name",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
 
-            TextField(
-              controller: passwordController,
-              decoration: const InputDecoration(labelText: "New Password (optional)"),
-            ),
+                  const SizedBox(height: 15),
 
-            const SizedBox(height: 20),
+                  // EMAIL
+                  TextField(
+                    controller: emailController,
+                    decoration: const InputDecoration(
+                      labelText: "Email",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
 
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: isLoading ? null : updateProfile,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                ),
-                child: isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Save Changes"),
+                  const SizedBox(height: 15),
+
+                  // PASSWORD
+                  TextField(
+                    controller: passwordController,
+                    decoration: const InputDecoration(
+                      labelText: "New Password (optional)",
+                      border: OutlineInputBorder(),
+                    ),
+                    obscureText: true,
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  // UPDATE BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: loading ? null : updateProfile,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                      ),
+                      child: loading
+                          ? const CircularProgressIndicator(
+                              color: Colors.white)
+                          : const Text("Update Profile"),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // LOGOUT
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton(
+                      onPressed: logout,
+                      child: const Text(
+                        "Logout",
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-
-            const SizedBox(height: 10),
-
-            TextButton(
-              onPressed: logout,
-              child: const Text(
-                "Logout",
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

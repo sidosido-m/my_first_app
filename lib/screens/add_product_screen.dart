@@ -18,15 +18,20 @@ class AddProductScreen extends StatefulWidget {
 }
 
 class _AddProductScreenState extends State<AddProductScreen> {
+  final _formKey = GlobalKey<FormState>();
+
   final nameController = TextEditingController();
   final priceController = TextEditingController();
 
   File? imageFile;
-  bool loading = false;
+  bool isLoading = false;
 
   Future<void> pickImage() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
 
     if (picked != null) {
       setState(() {
@@ -36,34 +41,52 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   Future<void> addProduct() async {
-    if (nameController.text.isEmpty ||
-        priceController.text.isEmpty ||
-        imageFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Fill all fields + image ❌")),
-      );
+    if (!_formKey.currentState!.validate()) return;
+
+    if (imageFile == null) {
+      _showMsg("Please select an image ❌", false);
       return;
     }
 
-    setState(() => loading = true);
+    setState(() => isLoading = true);
 
-    bool success = await ApiService.addProductWithImage(
-      name: nameController.text,
-      price: double.parse(priceController.text),
-      sellerId: widget.sellerId,
-      token: widget.token,
-      imageFile: imageFile!,
-    );
-
-    setState(() => loading = false);
-
-    if (success) {
-      Navigator.pop(context, true);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Upload failed ❌")),
+    try {
+      bool success = await ApiService.addProductWithImage(
+        name: nameController.text.trim(),
+        price: double.parse(priceController.text.trim()),
+        sellerId: widget.sellerId,
+        token: widget.token,
+        imageFile: imageFile!,
       );
+
+      setState(() => isLoading = false);
+
+      if (success) {
+        _showMsg("Product added successfully ✅", true);
+        Navigator.pop(context, true);
+      } else {
+        _showMsg("Upload failed ❌", false);
+      }
+    } catch (e) {
+      setState(() => isLoading = false);
+      _showMsg("Error: $e", false);
     }
+  }
+
+  void _showMsg(String msg, bool success) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: success ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    priceController.dispose();
+    super.dispose();
   }
 
   @override
@@ -73,51 +96,108 @@ class _AddProductScreenState extends State<AddProductScreen> {
         title: const Text("Add Product"),
         backgroundColor: Colors.deepPurple,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
 
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: "Product Name",
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+
+                  // IMAGE PREVIEW
+                  GestureDetector(
+                    onTap: pickImage,
+                    child: Container(
+                      height: 180,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.deepPurple),
+                      ),
+                      child: imageFile != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: Image.file(
+                                imageFile!,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add_a_photo,
+                                    size: 50, color: Colors.deepPurple),
+                                SizedBox(height: 10),
+                                Text("Tap to add image"),
+                              ],
+                            ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // NAME
+                  TextFormField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: "Product Name",
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) =>
+                        value!.isEmpty ? "Name required" : null,
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  // PRICE
+                  TextFormField(
+                    controller: priceController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: "Price (DA)",
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) =>
+                        value!.isEmpty ? "Price required" : null,
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  // BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: isLoading ? null : addProduct,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        "ADD PRODUCT",
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
+          ),
 
-            TextField(
-              controller: priceController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Price",
+          // LOADING OVERLAY
+          if (isLoading)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            imageFile != null
-                ? Image.file(imageFile!, height: 150)
-                : const Text("No image selected"),
-
-            ElevatedButton(
-              onPressed: pickImage,
-              child: const Text("Pick Image"),
-            ),
-
-            const SizedBox(height: 20),
-
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: loading ? null : addProduct,
-                child: loading
-                    ? const CircularProgressIndicator()
-                    : const Text("ADD PRODUCT"),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

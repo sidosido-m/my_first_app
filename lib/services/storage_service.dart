@@ -1,7 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class StorageService {
-
   /* ================= TOKEN ================= */
 
   static Future<void> saveToken(String token) async {
@@ -35,20 +34,46 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("userId");
   }
-  // ================= ROLE =================
 
-static Future<void> saveRole(String role) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString("role", role);
-}
+  /* ================= ROLE ================= */
 
-static Future<String?> getRole() async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getString("role");
-}
+  static Future<void> saveRole(String role) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("role", role);
+  }
 
-static Future<void> clearRole() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.remove("role");
-}
+  static Future<String?> getRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString("role");
+  }
+
+  static Future<void> clearRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("role");
+  }
+
+  /* ================= USER INFO (اختياري احترافي) ================= */
+
+  static Future<void> saveUser({
+    required int id,
+    required String token,
+    required String role,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt("userId", id);
+    await prefs.setString("token", token);
+    await prefs.setString("role", role);
+  }
+
+  static Future<void> clearAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+  }
+
+  /* ================= CHECK LOGIN ================= */
+
+  static Future<bool> isLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString("token") != null;
+  }
 }
