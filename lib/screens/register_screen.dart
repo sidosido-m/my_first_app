@@ -80,9 +80,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Navigator.pushReplacement(
     context,
     MaterialPageRoute(
-      builder: (_) => OtpScreen(email: email.text.trim()),
+      builder: (_) => OtpScreen(
+  email: email.text.trim(),
+  otpFromServer: res['otp'].toString(),
+),
+),
     ),
-  );
+  
 } else {
   msg(res.toString());
   msg(res['error'] ?? "Registration failed ❌");

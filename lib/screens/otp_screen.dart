@@ -4,11 +4,13 @@ import '../services/api_service.dart';
 
 class OtpScreen extends StatefulWidget {
   final String email;
+  final String otpFromServer;
 
   const OtpScreen({
-    super.key,
-    required this.email,
-  });
+  super.key,
+  required this.email,
+  required this.otpFromServer,
+});
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
