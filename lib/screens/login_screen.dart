@@ -57,7 +57,10 @@ class _LoginScreenState extends State<LoginScreen> {
   Navigator.push(
     context,
     MaterialPageRoute(
-      builder: (_) => OtpScreen(email: res['email']),
+      builder: (_) => OtpScreen(
+  email: res['email'],
+  otpFromServer: "", // 👈 مؤقت (لأن login ما يرجع OTP)
+),
     ),
   );
   return;

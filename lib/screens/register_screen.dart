@@ -85,10 +85,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   otpFromServer: res['otp'].toString(),
 ),
 ),
-    ),
+    );
   
 } else {
-  msg(res.toString());
+  
   msg(res['error'] ?? "Registration failed ❌");
 }
 
