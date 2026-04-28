@@ -76,15 +76,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       setState(() => loading = false);
 
-      if (res['success'] == true) {
+        if (res['success'] == true) {
   Navigator.pushReplacement(
     context,
     MaterialPageRoute(
-      builder: (_) => OtpScreen(email: res['email']),
+      builder: (_) => OtpScreen(email: email.text.trim()),
     ),
   );
-}else {
-  print(res);
+} else {
+  msg(res.toString());
+  msg(res['error'] ?? "Registration failed ❌");
 }
 
     } catch (e) {
