@@ -83,7 +83,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       builder: (_) => OtpScreen(email: res['email']),
     ),
   );
+}else {
+  print(res);
 }
+
     } catch (e) {
       setState(() => loading = false);
       msg("Server error: $e");
