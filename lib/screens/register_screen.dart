@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'otp_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -9,12 +10,16 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final nameController = TextEditingController();
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
+  final name = TextEditingController();
+  final username = TextEditingController();
+  final email = TextEditingController();
+  final password = TextEditingController();
+  final confirmPassword = TextEditingController();
 
-  String role = "user";
   bool loading = false;
+  bool agree = false;
+  bool notRobot = false;
+  bool hidePass = true;
 
   void msg(String text, {bool ok = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -25,153 +30,139 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  bool isValidEmail(String email) {
+    return RegExp(r"^[\w-\.]+@gmail\.com$").hasMatch(email);
+  }
+
   Future<void> register() async {
-    if (nameController.text.isEmpty ||
-        emailController.text.isEmpty ||
-        passwordController.text.isEmpty) {
+    if (name.text.isEmpty ||
+        username.text.isEmpty ||
+        email.text.isEmpty ||
+        password.text.isEmpty) {
       msg("Fill all fields ❌");
+      return;
+    }
+
+    if (!isValidEmail(email.text)) {
+      msg("Email must be valid Gmail ❌");
+      return;
+    }
+
+    if (password.text != confirmPassword.text) {
+      msg("Passwords not match ❌");
+      return;
+    }
+
+    if (!agree) {
+      msg("You must accept terms ❌");
+      return;
+    }
+
+    if (!notRobot) {
+      msg("Confirm you are not a robot ❌");
       return;
     }
 
     setState(() => loading = true);
 
     try {
-      final result = await ApiService.registerUser(
-        nameController.text.trim(),
-        emailController.text.trim(),
-        passwordController.text.trim(),
-        role,
+      final res = await ApiService.registerUser(
+        name.text.trim(),
+        username.text.trim(),
+        email.text.trim(),
+        password.text.trim(),
+        "user",
       );
 
       setState(() => loading = false);
 
-      if (result['success'] != true) {
-        msg(result['error'] ?? "Register failed ❌");
-        return;
-      }
-
-      msg("Account created ✔️", ok: true);
-
-      Navigator.pop(context);
-
+      if (res['success'] == true) {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => OtpScreen(email: res['email']),
+    ),
+  );
+}
     } catch (e) {
       setState(() => loading = false);
-      msg("Server error ❌");
+      msg("Server error: $e");
     }
   }
 
-  @override
-  void dispose() {
-    nameController.dispose();
-    emailController.dispose();
-    passwordController.dispose();
-    super.dispose();
+  InputDecoration input(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Create Account 👤"),
-        backgroundColor: Colors.deepPurple,
-      ),
+      appBar: AppBar(title: const Text("Create Account")),
 
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
 
-            const Icon(Icons.person_add,
-                size: 80, color: Colors.deepPurple),
+            TextField(controller: name, decoration: input("Full Name", Icons.person)),
+            const SizedBox(height: 10),
 
-            const SizedBox(height: 20),
+            TextField(controller: username, decoration: input("Username", Icons.alternate_email)),
+            const SizedBox(height: 10),
 
-            // NAME
+            TextField(controller: email, decoration: input("Email (@gmail.com)", Icons.email)),
+            const SizedBox(height: 10),
+
             TextField(
-              controller: nameController,
-              decoration: InputDecoration(
-                labelText: "Full Name",
-                prefixIcon: const Icon(Icons.person),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+              controller: password,
+              obscureText: hidePass,
+              decoration: input("Password", Icons.lock).copyWith(
+                suffixIcon: IconButton(
+                  icon: Icon(hidePass ? Icons.visibility : Icons.visibility_off),
+                  onPressed: () => setState(() => hidePass = !hidePass),
                 ),
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            // EMAIL
-            TextField(
-              controller: emailController,
-              decoration: InputDecoration(
-                labelText: "Email",
-                prefixIcon: const Icon(Icons.email),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            // PASSWORD
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: "Password",
-                prefixIcon: const Icon(Icons.lock),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            // ROLE
-            DropdownButtonFormField(
-              value: role,
-              items: const [
-                DropdownMenuItem(value: "user", child: Text("User")),
-                DropdownMenuItem(value: "seller", child: Text("Seller")),
-              ],
-              onChanged: (val) {
-                setState(() => role = val.toString());
-              },
-              decoration: InputDecoration(
-                labelText: "Account Type",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 25),
-
-            // BUTTON
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: loading ? null : register,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: loading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("CREATE ACCOUNT"),
               ),
             ),
 
             const SizedBox(height: 10),
 
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Already have an account? Login"),
+            TextField(
+              controller: confirmPassword,
+              obscureText: true,
+              decoration: input("Confirm Password", Icons.lock_outline),
+            ),
+
+            const SizedBox(height: 15),
+
+            // TERMS
+            CheckboxListTile(
+              value: agree,
+              onChanged: (v) => setState(() => agree = v!),
+              title: const Text("I agree to terms & conditions"),
+            ),
+
+            // ROBOT CHECK (simple version)
+            CheckboxListTile(
+              value: notRobot,
+              onChanged: (v) => setState(() => notRobot = v!),
+              title: const Text("I am not a robot 🤖"),
+            ),
+
+            const SizedBox(height: 20),
+
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: loading ? null : register,
+                child: loading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text("CREATE ACCOUNT"),
+              ),
             ),
           ],
         ),

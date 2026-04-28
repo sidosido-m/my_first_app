@@ -3,17 +3,11 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 
 class OtpScreen extends StatefulWidget {
-  final String name;
   final String email;
-  final String password;
-  final String role;
 
   const OtpScreen({
     super.key,
-    required this.name,
     required this.email,
-    required this.password,
-    required this.role,
   });
 
   @override
@@ -26,8 +20,8 @@ class _OtpScreenState extends State<OtpScreen> {
   bool loading = false;
   bool resendLoading = false;
 
-  bool canResend = false;
   int timer = 60;
+  bool canResend = false;
   Timer? countdown;
 
   @override
@@ -36,16 +30,18 @@ class _OtpScreenState extends State<OtpScreen> {
     startTimer();
   }
 
+  // ================= TIMER =================
   void startTimer() {
-    canResend = false;
-    timer = 60;
-
     countdown?.cancel();
+
+    setState(() {
+      timer = 60;
+      canResend = false;
+    });
+
     countdown = Timer.periodic(const Duration(seconds: 1), (t) {
       if (timer == 0) {
-        setState(() {
-          canResend = true;
-        });
+        setState(() => canResend = true);
         t.cancel();
       } else {
         setState(() => timer--);
@@ -72,15 +68,15 @@ class _OtpScreenState extends State<OtpScreen> {
     setState(() => loading = true);
 
     try {
-      final result = await ApiService.verifyOtp(
+      final res = await ApiService.verifyOtp(
         widget.email,
         otpController.text.trim(),
       );
 
       setState(() => loading = false);
 
-      if (result['success'] == true) {
-        msg("Verified successfully", ok: true);
+      if (res['success'] == true) {
+        msg("Account verified ✔️", ok: true);
 
         Navigator.pushNamedAndRemoveUntil(
           context,
@@ -88,29 +84,28 @@ class _OtpScreenState extends State<OtpScreen> {
           (route) => false,
         );
       } else {
-        msg(result['error'] ?? "Invalid OTP");
+        msg(res['error'] ?? "Invalid OTP ❌");
       }
     } catch (e) {
       setState(() => loading = false);
-      msg("Server error");
+      msg("Server error ❌");
     }
   }
 
-  // ================= RESEND OTP (FIXED) =================
+  // ================= RESEND OTP =================
   Future<void> resendOtp() async {
     if (!canResend) return;
 
     setState(() => resendLoading = true);
 
     try {
-      // 🔥 الصحيح: إعادة إرسال OTP عبر endpoint خاص
       await ApiService.resendOtp(widget.email);
 
-      msg("OTP sent again", ok: true);
+      msg("OTP sent again ✔️", ok: true);
 
       startTimer();
     } catch (e) {
-      msg("Failed to resend OTP");
+      msg("Failed to resend OTP ❌");
     }
 
     setState(() => resendLoading = false);
@@ -127,20 +122,23 @@ class _OtpScreenState extends State<OtpScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Verify OTP"),
+        title: const Text("OTP Verification"),
         backgroundColor: Colors.deepPurple,
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
 
-            const SizedBox(height: 30),
             const Icon(Icons.lock, size: 80, color: Colors.deepPurple),
 
             const SizedBox(height: 20),
 
-            Text("OTP sent to ${widget.email}"),
+            Text(
+              "OTP sent to ${widget.email}",
+              style: const TextStyle(fontSize: 16),
+            ),
 
             const SizedBox(height: 30),
 
@@ -148,7 +146,7 @@ class _OtpScreenState extends State<OtpScreen> {
               controller: otpController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: "OTP Code",
+                labelText: "Enter OTP",
                 border: OutlineInputBorder(),
               ),
             ),
@@ -171,7 +169,7 @@ class _OtpScreenState extends State<OtpScreen> {
             Text(
               canResend
                   ? "You can resend OTP now"
-                  : "Resend in $timer s",
+                  : "Resend in $timer seconds",
             ),
 
             const SizedBox(height: 10),

@@ -16,20 +16,24 @@ class _LoginScreenState extends State<LoginScreen> {
   bool loading = false;
   bool hidePassword = true;
 
-  void showMsg(String text, {bool ok = false}) {
+  final _formKey = GlobalKey<FormState>();
+
+  // ================= MESSAGE =================
+  void msg(String text, {bool ok = false}) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(text),
         backgroundColor: ok ? Colors.green : Colors.red,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
+  // ================= LOGIN =================
   Future<void> login() async {
-    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
-      showMsg("Please fill all fields ❌");
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() => loading = true);
 
@@ -41,26 +45,83 @@ class _LoginScreenState extends State<LoginScreen> {
 
       setState(() => loading = false);
 
-      if (res['token'] == null) {
-        showMsg(res['error'] ?? "Login failed ❌");
+      // ================= SAFE CHECK =================
+      if (res == null) {
+        msg("Server error");
         return;
       }
 
+      // 🔥 OTP REQUIRED FLOW
+      if (res['needOtp'] == true) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => OtpScreen(email: res['email']),
+    ),
+  );
+  return;
+}
+
+      // ❌ LOGIN FAILED
+      if (res['token'] == null) {
+        msg(res['error'] ?? "Login failed");
+        return;
+      }
+
+      // ================= SAVE SESSION =================
       await StorageService.saveToken(res['token']);
       await StorageService.saveUserId(res['user']['id']);
       await StorageService.saveRole(res['user']['role']);
 
-      showMsg("Welcome 👋", ok: true);
+      msg("Welcome back 👋", ok: true);
 
-      if (res['user']['role'] == "seller") {
-        Navigator.pushReplacementNamed(context, '/seller');
-      } else {
-        Navigator.pushReplacementNamed(context, '/products');
-      }
+      if (!mounted) return;
+
+      // ================= NAVIGATION =================
+      final role = res['user']['role'];
+
+      Navigator.pushReplacementNamed(
+        context,
+        role == "seller" ? '/seller' : '/products',
+      );
     } catch (e) {
       setState(() => loading = false);
-      showMsg("Server error ❌");
+      msg("Connection error");
     }
+  }
+
+  // ================= INPUT STYLE =================
+  InputDecoration inputStyle(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: Colors.deepPurple),
+      filled: true,
+      fillColor: Colors.grey[100],
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
+  }
+
+  // ================= VALIDATORS =================
+  String? emailValidator(String? value) {
+    if (value == null || value.isEmpty) {
+      return "Email required";
+    }
+    if (!value.contains("@")) {
+      return "Invalid email";
+    }
+    return null;
+  }
+
+  String? passwordValidator(String? value) {
+    if (value == null || value.isEmpty) {
+      return "Password required";
+    }
+    if (value.length < 6) {
+      return "Min 6 characters";
+    }
+    return null;
   }
 
   @override
@@ -73,146 +134,113 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.deepPurple,
+      backgroundColor: Colors.grey[100],
 
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+      appBar: AppBar(
+        title: const Text("Login"),
+        centerTitle: true,
+        backgroundColor: Colors.deepPurple,
+      ),
+
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+
+        child: Form(
+          key: _formKey,
           child: Column(
             children: [
 
-              // 🔥 ICON / TITLE
+              const SizedBox(height: 30),
+
               const Icon(
-                Icons.storefront,
-                size: 80,
-                color: Colors.white,
+                Icons.lock_outline,
+                size: 90,
+                color: Colors.deepPurple,
               ),
 
               const SizedBox(height: 10),
 
               const Text(
-                "Marketplace Login",
+                "Welcome back 👋",
                 style: TextStyle(
-                  color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
               ),
 
+              const SizedBox(height: 5),
+
+              const Text(
+                "Login to continue shopping",
+                style: TextStyle(color: Colors.grey),
+              ),
+
               const SizedBox(height: 30),
 
-              // 🧾 CARD
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+              // ================= EMAIL =================
+              TextFormField(
+                controller: emailController,
+                validator: emailValidator,
+                keyboardType: TextInputType.emailAddress,
+                decoration: inputStyle("Email", Icons.email),
+              ),
+
+              const SizedBox(height: 15),
+
+              // ================= PASSWORD =================
+              TextFormField(
+                controller: passwordController,
+                validator: passwordValidator,
+                obscureText: hidePassword,
+                decoration: inputStyle("Password", Icons.lock).copyWith(
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      hidePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
+                    onPressed: () {
+                      setState(() => hidePassword = !hidePassword);
+                    },
+                  ),
                 ),
-                child: Column(
-                  children: [
+              ),
 
-                    // EMAIL
-                    TextField(
-                      controller: emailController,
-                      decoration: const InputDecoration(
-                        labelText: "Email",
-                        prefixIcon: Icon(Icons.email),
-                        border: OutlineInputBorder(),
-                      ),
+              const SizedBox(height: 25),
+
+              // ================= BUTTON =================
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: loading ? null : login,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-
-                    const SizedBox(height: 15),
-
-                    // PASSWORD
-                    TextField(
-                      controller: passwordController,
-                      obscureText: hidePassword,
-                      decoration: InputDecoration(
-                        labelText: "Password",
-                        prefixIcon: const Icon(Icons.lock),
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            hidePassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              hidePassword = !hidePassword;
-                            });
-                          },
+                  ),
+                  child: loading
+                      ? const CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        )
+                      : const Text(
+                          "LOGIN",
+                          style: TextStyle(fontSize: 16),
                         ),
-                      ),
-                    ),
+                ),
+              ),
 
-                    const SizedBox(height: 20),
+              const SizedBox(height: 15),
 
-                    // LOGIN BUTTON
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: loading ? null : login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.deepPurple,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: loading
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
-                            : const Text(
-                                "LOGIN",
-                                style: TextStyle(fontSize: 16),
-                              ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 15),
-
-                    // OR LINE
-                    Row(
-                      children: const [
-                        Expanded(child: Divider()),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10),
-                          child: Text("OR"),
-                        ),
-                        Expanded(child: Divider()),
-                      ],
-                    ),
-
-                    const SizedBox(height: 15),
-
-                    // CREATE ACCOUNT BUTTON (IMPORTANT)
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/register');
-                        },
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(
-                            color: Colors.deepPurple,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          "CREATE NEW ACCOUNT",
-                          style: TextStyle(
-                            color: Colors.deepPurple,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+              TextButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/register');
+                },
+                child: const Text(
+                  "Don't have an account? Create one",
+                  style: TextStyle(fontSize: 15),
                 ),
               ),
             ],

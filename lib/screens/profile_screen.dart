@@ -59,8 +59,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       await ApiService.updateProfile(
         token!,
-        nameController.text.trim(),
-        emailController.text.trim(),
+        nameController.text = "User";
+        emailController.text = "";
         passwordController.text.trim().isEmpty
             ? null
             : passwordController.text.trim(),
