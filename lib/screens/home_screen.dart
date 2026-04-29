@@ -42,28 +42,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ================= SEARCH =================
   void search(String text) {
-  final query = text.toLowerCase();
+    final query = text.toLowerCase();
 
-  final result = products.where((p) {
-    final name = p['name']?.toLowerCase() ?? '';
-    final seller = p['seller_name']?.toLowerCase() ?? '';
+    final result = products.where((p) {
+      final name = p['name']?.toLowerCase() ?? '';
+      final seller = p['seller_name']?.toLowerCase() ?? '';
 
-    return name.contains(query) || seller.contains(query);
-  }).toList();
+      return name.contains(query) || seller.contains(query);
+    }).toList();
 
-  setState(() => filtered = result);
-}
+    setState(() => filtered = result);
+  }
 
   // ================= ADD TO CART =================
   Future<void> addToCart(int id) async {
     final token = await StorageService.getToken();
 
-    if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Login first")),
-      );
-      return;
-    }
+    if (token == null) return;
 
     await ApiService.addToCart(token, id);
 
@@ -71,6 +66,17 @@ class _HomeScreenState extends State<HomeScreen> {
       const SnackBar(
         content: Text("Added to cart 🛒"),
         backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  // ================= CATEGORY WIDGET (هنا التصحيح) =================
+  Widget category(String name) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      child: Chip(
+        label: Text(name),
+        backgroundColor: Colors.white,
       ),
     );
   }
@@ -96,8 +102,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-            // IMAGE
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(
@@ -116,8 +120,6 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
-                  // NAME
                   Text(
                     product['name'] ?? "",
                     maxLines: 1,
@@ -127,7 +129,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(height: 4),
 
-                  // SELLER
                   Row(
                     children: [
                       const Icon(Icons.store,
@@ -148,7 +149,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(height: 5),
 
-                  // PRICE
                   Text(
                     "${product['price']} DA",
                     style: const TextStyle(
@@ -159,20 +159,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   const SizedBox(height: 5),
 
-                  // ADD TO CART
                   SizedBox(
                     width: double.infinity,
                     height: 30,
                     child: ElevatedButton(
                       onPressed: () => addToCart(product['id']),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        padding: EdgeInsets.zero,
-                      ),
-                      child: const Text(
-                        "Add",
-                        style: TextStyle(fontSize: 12),
-                      ),
+                      child: const Text("Add"),
                     ),
                   )
                 ],
@@ -188,8 +180,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-
       appBar: AppBar(
         title: const Text("Marketplace 🛒"),
         backgroundColor: Colors.deepPurple,
@@ -208,7 +198,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           children: [
 
-            // ================= SEARCH =================
             Padding(
               padding: const EdgeInsets.all(10),
               child: TextField(
@@ -225,7 +214,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // ================= CATEGORIES =================
             SizedBox(
               height: 60,
               child: ListView(
@@ -242,42 +230,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 10),
 
-            // ================= PRODUCTS =================
             Expanded(
-  child: loading
-      ? const Center(child: CircularProgressIndicator())
-
-      : filtered.isEmpty
-          ? const Center(
-              child: Text(
-                "No products found 😢",
-                style: TextStyle(fontSize: 18),
-              ),
-            )
-
-          : GridView.builder(
-              padding: const EdgeInsets.all(10),
-              itemCount: filtered.length,
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.7,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-              ),
-              itemBuilder: (context, index) {
-                return productCard(filtered[index]);
-              },
+              child: loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(10),
+                      itemCount: filtered.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.7,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                      ),
+                      itemBuilder: (context, index) {
+                        return productCard(filtered[index]);
+                      },
+                    ),
             ),
-),
-
-  // ================= CATEGORY =================
-  Widget category(String name) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      child: Chip(
-        label: Text(name),
-        backgroundColor: Colors.white,
+          ],
+        ),
       ),
     );
   }
