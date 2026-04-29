@@ -89,27 +89,38 @@ class ApiService {
     return Map<String, dynamic>.from(data);
   }
 
-  // ================= PROFILE =================
-  static Future<Map<String, dynamic>> updateProfile(
-    String token,
-    String name,
-    String email,
-    String? password,
-  ) async {
-    final res = await http.put(
-      Uri.parse("$baseUrl/profile"),
-      headers: jsonHeader(token),
-      body: jsonEncode({
-        "name": name,
-        "email": email,
-        if (password != null && password.isNotEmpty)
-          "password": password,
-      }),
-    );
+  // ================= PROFILE WITH IMAGE =================
+static Future<bool> updateProfileWithImage(
+  String token,
+  String name,
+  String email,
+  String? password,
+  File? image,
+) async {
+  var request = http.MultipartRequest(
+    'PUT',
+    Uri.parse('$baseUrl/profile'),
+  );
 
-    final data = _safeDecode(res);
-    return Map<String, dynamic>.from(data);
+  request.headers['Authorization'] = 'Bearer $token';
+
+  request.fields['name'] = name;
+  request.fields['email'] = email;
+
+  if (password != null && password.isNotEmpty) {
+    request.fields['password'] = password;
   }
+
+  if (image != null) {
+    request.files.add(
+      await http.MultipartFile.fromPath('image', image.path),
+    );
+  }
+
+  var response = await request.send();
+
+  return response.statusCode == 200;
+}
 
   // ================= PRODUCTS =================
   static Future<List<dynamic>> getProducts() async {
@@ -190,7 +201,37 @@ class ApiService {
 
     _safeDecode(res);
   }
+ // ================= CHAT =================
 
+// إرسال رسالة
+static Future<void> sendMessage(
+  String token,
+  int receiverId,
+  String message,
+) async {
+  await http.post(
+    Uri.parse("$baseUrl/messages"),
+    headers: jsonHeader(token),
+    body: jsonEncode({
+      "receiver_id": receiverId,
+      "message": message,
+    }),
+  );
+}
+
+ // ================= CHAT =================
+static Future<List<dynamic>> getMessages(
+  String token,
+  int userId,
+) async {
+  final res = await http.get(
+    Uri.parse("$baseUrl/messages/$userId"),
+    headers: jsonHeader(token),
+  );
+
+  final data = _safeDecode(res);
+  return data is List ? data : [];
+}
   // ================= CART =================
   static Future<bool> addToCart(String token, int productId) async {
     final res = await http.post(

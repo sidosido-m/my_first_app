@@ -112,6 +112,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               ),
             ),
 
+
             // ================= PRICE =================
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -126,6 +127,24 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             ),
 
             const SizedBox(height: 30),
+
+GestureDetector(
+  onTap: () {
+    Navigator.pushNamed(
+      context,
+      '/seller-profile',
+      arguments: product['seller_id'],
+    );
+  },
+  child: Text(
+    "Seller: ${product['seller_name'] ?? 'Unknown'}",
+    style: const TextStyle(
+      fontSize: 16,
+      color: Colors.blue,
+      decoration: TextDecoration.underline,
+    ),
+  ),
+),
 
             // ================= BUTTONS =================
             Padding(
@@ -163,6 +182,22 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                               color: Colors.white,
                             )
                           : const Text("Buy Now ⚡"),
+                          // 💬 CHAT BUTTON (هنا بالضبط)
+      SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+          ),
+          onPressed: () {
+            Navigator.pushNamed(
+              context,
+              '/chat',
+              arguments: product['seller_id'],
+            );
+          },
+          child: const Text("Chat with Seller 💬"),
                     ),
                   ),
                 ],

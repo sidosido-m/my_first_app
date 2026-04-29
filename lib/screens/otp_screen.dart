@@ -7,10 +7,10 @@ class OtpScreen extends StatefulWidget {
   final String otpFromServer;
 
   const OtpScreen({
-  super.key,
-  required this.email,
-  required this.otpFromServer,
-});
+    super.key,
+    required this.email,
+    required this.otpFromServer,
+  });
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -86,31 +86,12 @@ class _OtpScreenState extends State<OtpScreen> {
           (route) => false,
         );
       } else {
-        msg(res['error'] ?? "Invalid OTP ❌");
+        msg("Wrong OTP ❌");
       }
     } catch (e) {
       setState(() => loading = false);
       msg("Server error ❌");
     }
-  }
-
-  // ================= RESEND OTP =================
-  Future<void> resendOtp() async {
-    if (!canResend) return;
-
-    setState(() => resendLoading = true);
-
-    try {
-      await ApiService.resendOtp(widget.email);
-
-      msg("OTP sent again ✔️", ok: true);
-
-      startTimer();
-    } catch (e) {
-      msg("Failed to resend OTP ❌");
-    }
-
-    setState(() => resendLoading = false);
   }
 
   @override
@@ -138,11 +119,29 @@ class _OtpScreenState extends State<OtpScreen> {
             const SizedBox(height: 20),
 
             Text(
-              "OTP sent to ${widget.email}",
+              "OTP sent to: ${widget.email}",
               style: const TextStyle(fontSize: 16),
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
+
+            // 🔥 SHOW OTP INSIDE APP (DEV ONLY)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.yellow.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                "TEST OTP: ${widget.otpFromServer}",
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
 
             TextField(
               controller: otpController,
@@ -170,19 +169,8 @@ class _OtpScreenState extends State<OtpScreen> {
 
             Text(
               canResend
-                  ? "You can resend OTP now"
-                  : "Resend in $timer seconds",
-            ),
-
-            const SizedBox(height: 10),
-
-            TextButton(
-              onPressed: canResend && !resendLoading
-                  ? resendOtp
-                  : null,
-              child: resendLoading
-                  ? const CircularProgressIndicator()
-                  : const Text("Resend OTP"),
+                  ? "You can resend OTP"
+                  : "Resend in $timer sec",
             ),
           ],
         ),

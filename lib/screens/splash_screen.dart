@@ -41,15 +41,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (!mounted) return;
 
-    if (token != null) {
-      if (role == "seller") {
-        Navigator.pushReplacementNamed(context, '/seller');
-      } else {
-        Navigator.pushReplacementNamed(context, '/products');
-      }
-    } else {
-      Navigator.pushReplacementNamed(context, '/login');
-    }
+    Navigator.pushReplacementNamed(context, '/home');
   }
 
   @override

@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
@@ -15,11 +17,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final passwordController = TextEditingController();
 
   String? token;
-  int? userId;
   String? role;
 
   bool loading = false;
   bool isFetching = true;
+
+  File? imageFile;
+  String? imageUrl;
+
+  final String baseUrl = "https://my-server-0xa0.onrender.com";
 
   @override
   void initState() {
@@ -29,12 +35,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> loadUser() async {
     token = await StorageService.getToken();
-    userId = await StorageService.getUserId();
     role = await StorageService.getRole();
 
-    setState(() {
-      isFetching = false;
-    });
+    if (token != null) {
+      try {
+        final user = await ApiService.getProfile(token!);
+
+        nameController.text = user['name'] ?? "";
+        emailController.text = user['email'] ?? "";
+        imageUrl = user['image'];
+      } catch (e) {}
+    }
+
+    setState(() => isFetching = false);
+  }
+
+  Future<void> pickImage() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (picked != null) {
+      setState(() {
+        imageFile = File(picked.path);
+      });
+    }
   }
 
   void showMsg(String msg, {bool ok = false}) {
@@ -57,22 +82,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => loading = true);
 
     try {
-      await ApiService.updateProfile(
+      await ApiService.updateProfileWithImage(
         token!,
-        nameController.text = "User";
-        emailController.text = "";
+        nameController.text.trim(),
+        emailController.text.trim(),
         passwordController.text.trim().isEmpty
             ? null
             : passwordController.text.trim(),
+        imageFile,
       );
-
-      setState(() => loading = false);
 
       showMsg("Profile updated ✔️", ok: true);
     } catch (e) {
-      setState(() => loading = false);
       showMsg("Update failed ❌");
     }
+
+    setState(() => loading = false);
   }
 
   Future<void> logout() async {
@@ -80,11 +105,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await StorageService.clearUserId();
     await StorageService.clearRole();
 
+    if (!mounted) return;
+
     Navigator.pushNamedAndRemoveUntil(
       context,
       '/login',
       (route) => false,
     );
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  ImageProvider _buildImage() {
+    if (imageFile != null) {
+      return FileImage(imageFile!);
+    }
+
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      return NetworkImage("$baseUrl/uploads/$imageUrl");
+    }
+
+    return const AssetImage("assets/default_user.png");
   }
 
   @override
@@ -101,83 +148,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 children: [
 
-                  const CircleAvatar(
-                    radius: 45,
-                    backgroundColor: Colors.deepPurple,
-                    child: Icon(Icons.person, size: 50, color: Colors.white),
+                  GestureDetector(
+                    onTap: pickImage,
+                    child: CircleAvatar(
+                      radius: 50,
+                      backgroundImage: _buildImage(),
+                    ),
                   ),
 
                   const SizedBox(height: 20),
 
-                  Text(
-                    "Role: ${role ?? 'user'}",
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                  Text("Role: ${role ?? 'user'}"),
 
                   const SizedBox(height: 20),
 
-                  // NAME
                   TextField(
                     controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: "Name",
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(labelText: "Name"),
                   ),
 
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 10),
 
-                  // EMAIL
                   TextField(
                     controller: emailController,
-                    decoration: const InputDecoration(
-                      labelText: "Email",
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(labelText: "Email"),
                   ),
 
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 10),
 
-                  // PASSWORD
                   TextField(
                     controller: passwordController,
-                    decoration: const InputDecoration(
-                      labelText: "New Password (optional)",
-                      border: OutlineInputBorder(),
-                    ),
                     obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: "New Password",
+                    ),
                   ),
 
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 20),
 
-                  // UPDATE BUTTON
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
                       onPressed: loading ? null : updateProfile,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                      ),
                       child: loading
-                          ? const CircularProgressIndicator(
-                              color: Colors.white)
+                          ? const CircularProgressIndicator()
                           : const Text("Update Profile"),
                     ),
                   ),
 
                   const SizedBox(height: 10),
 
-                  // LOGOUT
                   SizedBox(
                     width: double.infinity,
                     height: 50,
-                    child: OutlinedButton(
-                      onPressed: logout,
-                      child: const Text(
-                        "Logout",
-                        style: TextStyle(color: Colors.red),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/orders');
+                      },
+                      child: const Text("My Orders 🧾"),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
                       ),
+                      onPressed: logout,
+                      child: const Text("Logout"),
                     ),
                   ),
                 ],

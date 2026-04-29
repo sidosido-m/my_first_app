@@ -7,6 +7,8 @@ import 'screens/products_screen.dart';
 import 'screens/cart_screen.dart';
 import 'screens/orders_screen.dart';
 import 'screens/seller_screen.dart';
+import 'routes.dart';
+
 
 void main() {
   runApp(const MyApp());
@@ -25,10 +27,16 @@ class MyApp extends StatelessWidget {
 
       // ================= ROUTES =================
       routes: {
+        '/home': (context) => const HomeScreen(),
         '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
-
+        '/product-details': (context) => ProductDetailsScreen(
+          product: ModalRoute.of(context)!.settings.arguments,),
+          '/seller-profile': (context) => SellerProfileScreen(
+  sellerId: ModalRoute.of(context)!.settings.arguments as int,
+),
+        '/seller-profile': (context) => const SellerProfileScreen(),
         // CUSTOMER
         '/products': (context) => const ProductsScreen(),
         '/cart': (context) => const CartScreen(),

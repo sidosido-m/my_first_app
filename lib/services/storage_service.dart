@@ -1,79 +1,70 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class StorageService {
-  /* ================= TOKEN ================= */
+  static SharedPreferences? _prefs;
 
-  static Future<void> saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("token", token);
+  // ================= INIT =================
+  static Future init() async {
+    _prefs = await SharedPreferences.getInstance();
   }
 
-  static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString("token");
+  // ================= TOKEN =================
+  static Future<void> saveToken(String token) async {
+    await _prefs?.setString("token", token);
+  }
+
+  static String? getToken() {
+    return _prefs?.getString("token");
   }
 
   static Future<void> clearToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove("token");
+    await _prefs?.remove("token");
   }
 
-  /* ================= USER ID ================= */
-
+  // ================= USER ID =================
   static Future<void> saveUserId(int id) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt("userId", id);
+    await _prefs?.setInt("userId", id);
   }
 
-  static Future<int?> getUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt("userId");
+  static int? getUserId() {
+    return _prefs?.getInt("userId");
   }
 
   static Future<void> clearUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove("userId");
+    await _prefs?.remove("userId");
   }
 
-  /* ================= ROLE ================= */
-
+  // ================= ROLE =================
   static Future<void> saveRole(String role) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("role", role);
+    await _prefs?.setString("role", role);
   }
 
-  static Future<String?> getRole() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString("role");
+  static String? getRole() {
+    return _prefs?.getString("role");
   }
 
   static Future<void> clearRole() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove("role");
+    await _prefs?.remove("role");
   }
 
-  /* ================= USER INFO (اختياري احترافي) ================= */
-
+  // ================= USER (احترافي) =================
   static Future<void> saveUser({
     required int id,
     required String token,
     required String role,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt("userId", id);
-    await prefs.setString("token", token);
-    await prefs.setString("role", role);
+    await saveUserId(id);
+    await saveToken(token);
+    await saveRole(role);
   }
 
+  // ================= LOGOUT =================
   static Future<void> clearAll() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await _prefs?.clear();
   }
 
-  /* ================= CHECK LOGIN ================= */
-
-  static Future<bool> isLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString("token") != null;
+  // ================= CHECK LOGIN =================
+  static bool isLoggedIn() {
+    return _prefs?.getString("token") != null;
   }
 }
