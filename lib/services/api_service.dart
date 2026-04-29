@@ -201,6 +201,14 @@ static Future<bool> updateProfileWithImage(
 
     _safeDecode(res);
   }
+  // ================= SELLER =================
+  static Future<Map<String, dynamic>> getSeller(int id) async {
+  final res = await http.get(
+    Uri.parse("$baseUrl/seller/$id"),
+  );
+
+  return _safeDecode(res);
+}
  // ================= CHAT =================
 
 // إرسال رسالة

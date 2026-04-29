@@ -183,6 +183,8 @@ GestureDetector(
                             )
                           : const Text("Buy Now ⚡"),
                           // 💬 CHAT BUTTON (هنا بالضبط)
+                    ),
+                  ),
       SizedBox(
         width: double.infinity,
         height: 50,
