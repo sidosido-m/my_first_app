@@ -4,12 +4,10 @@ import '../services/api_service.dart';
 
 class OtpScreen extends StatefulWidget {
   final String email;
-  final String otpFromServer;
 
   const OtpScreen({
     super.key,
     required this.email,
-    required this.otpFromServer,
   });
 
   @override
@@ -17,14 +15,12 @@ class OtpScreen extends StatefulWidget {
 }
 
 class _OtpScreenState extends State<OtpScreen> {
-  final otpController = TextEditingController();
+  final TextEditingController otpController = TextEditingController();
 
+  int seconds = 60;
+  Timer? timer;
+  bool expired = false;
   bool loading = false;
-  bool resendLoading = false;
-
-  int timer = 60;
-  bool canResend = false;
-  Timer? countdown;
 
   @override
   void initState() {
@@ -34,38 +30,30 @@ class _OtpScreenState extends State<OtpScreen> {
 
   // ================= TIMER =================
   void startTimer() {
-    countdown?.cancel();
+    timer?.cancel();
 
     setState(() {
-      timer = 60;
-      canResend = false;
+      seconds = 60;
+      expired = false;
     });
 
-    countdown = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (timer == 0) {
-        setState(() => canResend = true);
+    timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (seconds == 0) {
+        setState(() {
+          expired = true;
+        });
         t.cancel();
       } else {
-        setState(() => timer--);
+        setState(() {
+          seconds--;
+        });
       }
     });
   }
 
-  void msg(String text, {bool ok = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text),
-        backgroundColor: ok ? Colors.green : Colors.red,
-      ),
-    );
-  }
-
   // ================= VERIFY OTP =================
   Future<void> verifyOtp() async {
-    if (otpController.text.isEmpty) {
-      msg("Enter OTP");
-      return;
-    }
+    if (otpController.text.isEmpty) return;
 
     setState(() => loading = true);
 
@@ -78,25 +66,44 @@ class _OtpScreenState extends State<OtpScreen> {
       setState(() => loading = false);
 
       if (res['success'] == true) {
-        msg("Account verified ✔️", ok: true);
-
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/login',
-          (route) => false,
-        );
+        Navigator.pushReplacementNamed(context, '/login');
       } else {
-        msg("Wrong OTP ❌");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['error'] ?? "Wrong OTP")),
+        );
       }
     } catch (e) {
       setState(() => loading = false);
-      msg("Server error ❌");
+    }
+  }
+
+  // ================= RESEND OTP =================
+  Future<void> resendOtp() async {
+    setState(() => loading = true);
+
+    try {
+      await ApiService.resendOtp(widget.email);
+
+      setState(() {
+        loading = false;
+      });
+
+      startTimer();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("New OTP sent 🔁"),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      setState(() => loading = false);
     }
   }
 
   @override
   void dispose() {
-    countdown?.cancel();
+    timer?.cancel();
     otpController.dispose();
     super.dispose();
   }
@@ -114,35 +121,35 @@ class _OtpScreenState extends State<OtpScreen> {
         child: Column(
           children: [
 
-            const Icon(Icons.lock, size: 80, color: Colors.deepPurple),
+            const SizedBox(height: 20),
+
+            const Icon(
+              Icons.lock,
+              size: 80,
+              color: Colors.deepPurple,
+            ),
 
             const SizedBox(height: 20),
 
             Text(
-              "OTP sent to: ${widget.email}",
+              "Verify ${widget.email}",
               style: const TextStyle(fontSize: 16),
             ),
 
             const SizedBox(height: 20),
 
-            // 🔥 SHOW OTP INSIDE APP (DEV ONLY)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.yellow.shade100,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                "TEST OTP: ${widget.otpFromServer}",
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+            // ================= TIMER =================
+            Text(
+              expired ? "OTP expired ⛔" : "Time left: $seconds s",
+              style: TextStyle(
+                color: expired ? Colors.red : Colors.black,
+                fontWeight: FontWeight.bold,
               ),
             ),
 
             const SizedBox(height: 20),
 
+            // ================= OTP INPUT =================
             TextField(
               controller: otpController,
               keyboardType: TextInputType.number,
@@ -154,24 +161,26 @@ class _OtpScreenState extends State<OtpScreen> {
 
             const SizedBox(height: 20),
 
+            // ================= VERIFY BUTTON =================
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: loading ? null : verifyOtp,
+                onPressed: expired || loading ? null : verifyOtp,
                 child: loading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("VERIFY"),
+                    : const Text("Verify OTP"),
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
 
-            Text(
-              canResend
-                  ? "You can resend OTP"
-                  : "Resend in $timer sec",
-            ),
+            // ================= RESEND =================
+            if (expired)
+              TextButton(
+                onPressed: resendOtp,
+                child: const Text("Resend OTP 🔁"),
+              ),
           ],
         ),
       ),

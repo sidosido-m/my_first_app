@@ -58,22 +58,17 @@ class ApiService {
   }
 
   // ================= VERIFY OTP =================
-  static Future<Map<String, dynamic>> verifyOtp(
-    String email,
-    String otp,
-  ) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/verify-otp"),
-      headers: jsonHeader(),
-      body: jsonEncode({
-        "email": email,
-        "otp": otp,
-      }),
-    );
+  static Future verifyOtp(String email, String otp) async {
+  final res = await http.post(
+    Uri.parse("$baseUrl/verify-otp"),
+    body: {
+      "email": email,
+      "otp": otp,
+    },
+  );
 
-    final data = _safeDecode(res);
-    return Map<String, dynamic>.from(data);
-  }
+  return jsonDecode(res.body);
+}
 
   // ================= RESEND OTP =================
   static Future<Map<String, dynamic>> resendOtp(String email) async {
