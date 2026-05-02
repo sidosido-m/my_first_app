@@ -10,8 +10,16 @@ import 'screens/seller_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/product_details_screen.dart';
 import 'screens/seller_profile_screen.dart';
+import 'services/storage_service.dart';
+import 'screens/splash_router.dart';
+import 'screens/profile_screen.dart';
+import 'screens/chat_screen.dart';
+import 'screens/edit_profile_screen.dart';
+import 'screens/my_products_screen.dart'
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await StorageService.init();
   runApp(const MyApp());
 }
 
@@ -27,47 +35,56 @@ class MyApp extends StatelessWidget {
 
       routes: {
         // ================= AUTH =================
-        '/': (context) => const SplashScreen(),
+        '/': (context) => const SplashRouter(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
 
         // ================= HOME =================
-        '/home': (context) => HomeScreen(),
+        '/home': (context) => const HomeScreen(),
 
         // ================= PRODUCTS =================
         '/products': (context) => const ProductsScreen(),
         '/cart': (context) => const CartScreen(),
         '/orders': (context) => const OrdersScreen(),
-
-        // ================= SELLER =================
         '/seller': (context) => const SellerScreen(),
 
-        // ================= PRODUCT DETAILS =================
-        '/product-details': (context) {
-          final product =
-              ModalRoute.of(context)!.settings.arguments as dynamic;
+        // ================= PROFILE =================
+        '/profile': (context) => const ProfileScreen(),
+      
+      '/edit-profile': (context) => const EditProfileScreen(),
+      '/my-products': (context) => const MyProductsScreen(),
+},
+      // ================= PRODUCT DETAILS =================
+      onGenerateRoute: (settings) {
+        if (settings.name == '/product-details') {
+          final product = settings.arguments;
+          return MaterialPageRoute(
+            builder: (_) => ProductDetailsScreen(product: product),
+          );
+        }
 
-          return ProductDetailsScreen(product: product);
-        },
+        if (settings.name == '/seller-profile') {
+          final sellerId = settings.arguments as int;
+          return MaterialPageRoute(
+            builder: (_) => SellerProfileScreen(sellerId: sellerId),
+          );
+        }
 
-        // ================= SELLER PROFILE =================
-        '/seller-profile': (context) {
-          final sellerId =
-              ModalRoute.of(context)!.settings.arguments as int;
+        if (settings.name == '/chat') {
+          final sellerId = settings.arguments as int;
+          return MaterialPageRoute(
+            builder: (_) => ChatScreen(receiverId: sellerId),
+          );
+        }
 
-          return SellerProfileScreen(sellerId: sellerId);
-        },
+        return null;
       },
 
+      // ================= UNKNOWN ROUTE =================
       onUnknownRoute: (settings) {
         return MaterialPageRoute(
-          builder: (context) => const Scaffold(
-            body: Center(
-              child: Text(
-                "404 - Page Not Found",
-                style: TextStyle(fontSize: 20),
-              ),
-            ),
+          builder: (_) => const Scaffold(
+            body: Center(child: Text("Route not found ❌")),
           ),
         );
       },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import 'otp_screen.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -38,9 +39,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final res = await ApiService.loginUser(
-        emailController.text.trim(),
-        passwordController.text.trim(),
-      );
+  emailController.text.trim(),
+  passwordController.text.trim(),
+);
+
+print("LOGIN RESPONSE: $res");
 
       setState(() => loading = false);
 
@@ -56,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(
             builder: (_) => OtpScreen(
               email: res['email'],
-              otpFromServer: "",
+              
             ),
           ),
         );
@@ -79,11 +82,10 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       // ================= NAVIGATION =================
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/home',
-        (route) => false,
-      );
+     Navigator.of(context).pushNamedAndRemoveUntil(
+  '/home',
+  (route) => false,
+);
 
     } catch (e) {
       setState(() => loading = false);

@@ -22,13 +22,19 @@ class _OtpScreenState extends State<OtpScreen> {
   bool expired = false;
   bool loading = false;
 
+  // 🔥 RESEND CONTROL
+  bool canResend = false;
+  int resendTimer = 60;
+  Timer? resendCountdown;
+
   @override
   void initState() {
     super.initState();
     startTimer();
+    startResendTimer();
   }
 
-  // ================= TIMER =================
+  // ================= OTP TIMER =================
   void startTimer() {
     timer?.cancel();
 
@@ -51,6 +57,30 @@ class _OtpScreenState extends State<OtpScreen> {
     });
   }
 
+  // ================= RESEND TIMER =================
+  void startResendTimer() {
+    resendCountdown?.cancel();
+
+    setState(() {
+      canResend = false;
+      resendTimer = 60;
+    });
+
+    resendCountdown =
+        Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (resendTimer == 0) {
+        timer.cancel();
+        setState(() {
+          canResend = true;
+        });
+      } else {
+        setState(() {
+          resendTimer--;
+        });
+      }
+    });
+  }
+
   // ================= VERIFY OTP =================
   Future<void> verifyOtp() async {
     if (otpController.text.isEmpty) return;
@@ -65,30 +95,49 @@ class _OtpScreenState extends State<OtpScreen> {
 
       setState(() => loading = false);
 
+      if (!mounted) return;
+
       if (res['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Account verified ✅"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
         Navigator.pushReplacementNamed(context, '/login');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res['error'] ?? "Wrong OTP")),
+          SnackBar(
+            content: Text(res['error'] ?? "Wrong OTP"),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
       setState(() => loading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Server error ❌"),
+        ),
+      );
     }
   }
 
   // ================= RESEND OTP =================
   Future<void> resendOtp() async {
+    if (!canResend) return;
+
     setState(() => loading = true);
 
     try {
       await ApiService.resendOtp(widget.email);
 
-      setState(() {
-        loading = false;
-      });
+      setState(() => loading = false);
 
       startTimer();
+      startResendTimer(); // 🔥 مهم جداً
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -101,13 +150,16 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
+  // ================= DISPOSE =================
   @override
   void dispose() {
     timer?.cancel();
+    resendCountdown?.cancel();
     otpController.dispose();
     super.dispose();
   }
 
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -115,7 +167,6 @@ class _OtpScreenState extends State<OtpScreen> {
         title: const Text("OTP Verification"),
         backgroundColor: Colors.deepPurple,
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -176,11 +227,14 @@ class _OtpScreenState extends State<OtpScreen> {
             const SizedBox(height: 10),
 
             // ================= RESEND =================
-            if (expired)
-              TextButton(
-                onPressed: resendOtp,
-                child: const Text("Resend OTP 🔁"),
+            TextButton(
+              onPressed: canResend ? resendOtp : null,
+              child: Text(
+                canResend
+                    ? "Resend OTP 🔁"
+                    : "Wait $resendTimer s",
               ),
+            ),
           ],
         ),
       ),

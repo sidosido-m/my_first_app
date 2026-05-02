@@ -23,15 +23,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
     load();
   }
 
-  void msg(String text, {bool ok = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text),
-        backgroundColor: ok ? Colors.green : Colors.red,
-      ),
-    );
-  }
-
   // ================= LOAD PRODUCTS =================
   Future<void> load() async {
     setState(() => loading = true);
@@ -45,8 +36,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
       });
     } catch (e) {
       setState(() => loading = false);
-      msg("Failed to load products");
     }
+  }
+
+  // ================= MESSAGE =================
+  void msg(String text, {bool ok = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(text),
+        backgroundColor: ok ? Colors.green : Colors.red,
+      ),
+    );
   }
 
   // ================= ADD TO CART =================
@@ -71,28 +71,25 @@ class _ProductsScreenState extends State<ProductsScreen> {
     setState(() => adding = false);
   }
 
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Shop 🛍️"),
+        title: const Text("Products 🛍️"),
         backgroundColor: Colors.deepPurple,
         actions: [
           IconButton(
-            onPressed: load,
             icon: const Icon(Icons.refresh),
+            onPressed: load,
           ),
         ],
       ),
 
       body: loading
           ? const Center(child: CircularProgressIndicator())
-
           : products.isEmpty
-              ? const Center(
-                  child: Text("No products available"),
-                )
-
+              ? const Center(child: Text("No products"))
               : GridView.builder(
                   padding: const EdgeInsets.all(10),
                   itemCount: products.length,
@@ -116,85 +113,100 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           ),
                         );
                       },
-
                       child: Card(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
                         ),
                         elevation: 4,
-
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
 
-                            // ================= IMAGE =================
+                            // IMAGE
                             Expanded(
                               child: ClipRRect(
                                 borderRadius:
                                     const BorderRadius.vertical(
                                   top: Radius.circular(15),
                                 ),
-                                child: p['image'] != null
-                                    ? Image.network(
-                                        "$baseUrl/uploads/${p['image']}",
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : const Center(
-                                        child: Icon(Icons.image),
+                                child: Image.network(
+                                  "$baseUrl/uploads/${p['image']}",
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+
+                            Padding(
+                              padding: const EdgeInsets.all(6),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+
+                                  Text(
+                                    p['name'] ?? "",
+                                    maxLines: 1,
+                                    overflow:
+                                        TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight:
+                                          FontWeight.bold,
+                                    ),
+                                  ),
+
+                                  Text(
+                                    "${p['price']} DA",
+                                    style: const TextStyle(
+                                      color: Colors.green,
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 5),
+
+                                  // CHAT
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/chat',
+                                          arguments:
+                                              p['seller_id'],
+                                        );
+                                      },
+                                      style:
+                                          ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            Colors.blue,
                                       ),
-                              ),
-                            ),
+                                      child: const Text(
+                                          "Message 💬"),
+                                    ),
+                                  ),
 
-                            Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Text(
-                                p['name'] ?? "",
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
+                                  const SizedBox(height: 5),
 
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 8),
-                              child: Text(
-                                "${p['price']} DA",
-                                style: const TextStyle(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                  // CART
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: adding
+                                          ? null
+                                          : () => addToCart(
+                                              p['id']),
+                                      style:
+                                          ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            Colors.deepPurple,
+                                      ),
+                                      child:
+                                          const Text("Add 🛒"),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-
-                            const SizedBox(height: 5),
-
-                            // ================= BUTTON =================
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: adding
-                                    ? null
-                                    : () => addToCart(p['id']),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.deepPurple,
-                                ),
-                                child: adding
-                                    ? const SizedBox(
-                                        height: 15,
-                                        width: 15,
-                                        child:
-                                            CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Text("Add to cart"),
-                              ),
-                            ),
+                            )
                           ],
                         ),
                       ),

@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 class ApiService {
   static const String baseUrl = "https://my-server-0xa0.onrender.com";
 
+
+
   // ================= HEADERS =================
   static Map<String, String> jsonHeader([String? token]) {
     return {
@@ -16,23 +18,24 @@ class ApiService {
 
   // ================= LOGIN =================
   static Future<Map<String, dynamic>> loginUser(
-    String email,
-    String password,
-  ) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/login"),
-      headers: jsonHeader(),
-      body: jsonEncode({
-        "email": email,
-        "password": password,
-      }),
-    );
+  String email,
+  String password,
+) async {
+  final res = await http.post(
+    Uri.parse("$baseUrl/login"),
+    headers: jsonHeader(),
+    body: jsonEncode({
+      "email": email,
+      "password": password,
+    }),
+  );
 
-    final data = _safeDecode(res);
+  print("STATUS: ${res.statusCode}");
+  print("BODY: ${res.body}");
 
-    return Map<String, dynamic>.from(data);
-  }
-
+  final data = _safeDecode(res);
+  return Map<String, dynamic>.from(data);
+}
   // ================= REGISTER =================
   static Future<Map<String, dynamic>> registerUser(
     String name,
@@ -59,19 +62,20 @@ class ApiService {
 
   // ================= VERIFY OTP =================
   static Future verifyOtp(String email, String otp) async {
-  final res = await http.post(
-    Uri.parse("$baseUrl/verify-otp"),
-    body: {
-      "email": email,
-      "otp": otp,
-    },
-  );
+    final res = await http.post(
+      Uri.parse("$baseUrl/verify-otp"),
+      headers: jsonHeader(),
+      body: jsonEncode({
+        "email": email,
+        "otp": otp,
+      }),
+    );
 
-  return jsonDecode(res.body);
-}
+    return jsonDecode(res.body);
+  }
 
   // ================= RESEND OTP =================
-  static Future<Map<String, dynamic>> resendOtp(String email) async {
+   static Future resendOtp(String email) async {
     final res = await http.post(
       Uri.parse("$baseUrl/resend-otp"),
       headers: jsonHeader(),
@@ -80,9 +84,9 @@ class ApiService {
       }),
     );
 
-    final data = _safeDecode(res);
-    return Map<String, dynamic>.from(data);
+    return jsonDecode(res.body);
   }
+
 
   // ================= PROFILE WITH IMAGE =================
 static Future<bool> updateProfileWithImage(
@@ -119,20 +123,19 @@ static Future<bool> updateProfileWithImage(
 
   // ================= PRODUCTS =================
   static Future<List<dynamic>> getProducts() async {
-    final res = await http.get(Uri.parse("$baseUrl/products"));
+  final res = await http.get(Uri.parse("$baseUrl/products"));
 
-    final data = _safeDecode(res);
-    return data is List ? data : [];
-  }
-
+  final data = _safeDecode(res);
+  return data is List ? data : [];
+}
   static Future<List<dynamic>> getMyProducts(int sellerId) async {
-    final res = await http.get(
-      Uri.parse("$baseUrl/products?sellerId=$sellerId"),
-    );
+  final res = await http.get(
+    Uri.parse("$baseUrl/products?sellerId=$sellerId"),
+  );
 
-    final data = _safeDecode(res);
-    return data is List ? data : [];
-  }
+  final data = _safeDecode(res);
+  return data is List ? data : [];
+}
 
   // ================= ADD PRODUCT =================
   static Future<bool> addProductWithImage({
@@ -204,7 +207,35 @@ static Future<bool> updateProfileWithImage(
 
   return _safeDecode(res);
 }
- // ================= CHAT =================
+ // ================= PROFILE =================
+static Future<Map<String, dynamic>> getProfile(String token) async {
+  final res = await http.get(
+    Uri.parse("$baseUrl/profile"),
+    headers: {
+      "Authorization": "Bearer $token",
+    },
+  );
+
+  return jsonDecode(res.body);
+}
+// ================= BECOME SELLER =================
+static Future<void> becomeSeller(String token) async {
+  final res = await http.put(
+    Uri.parse("$baseUrl/become-seller"),
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
+  );
+
+  final data = jsonDecode(res.body);
+
+  if (data['success'] != true) {
+    throw Exception(data['error']);
+  }
+}
+
+//=============== CHAT =================
 
 // إرسال رسالة
 static Future<void> sendMessage(
@@ -294,22 +325,19 @@ static Future<List<dynamic>> getMessages(
 
   // ================= SAFE HANDLER =================
   static dynamic _safeDecode(http.Response res) {
-    try {
-      final body = res.body.isNotEmpty ? jsonDecode(res.body) : {};
+  try {
+    print("STATUS: ${res.statusCode}");
+    print("BODY: ${res.body}");
 
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        return body;
-      }
+    final body = res.body.isNotEmpty ? jsonDecode(res.body) : {};
 
-      return {
-        "success": false,
-        "error": body["error"] ?? "Server Error"
-      };
-    } catch (e) {
-      return {
-        "success": false,
-        "error": "API parse error"
-      };
-    }
+    return body;
+  } catch (e) {
+    print("PARSE ERROR: $e");
+    return {
+      "success": false,
+      "error": "Invalid JSON from server"
+    };
   }
+}
 }

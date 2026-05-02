@@ -33,8 +33,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   bool isValidEmail(String email) {
-    return RegExp(r"^[\w-\.]+@gmail\.com$").hasMatch(email);
-  }
+  return RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$")
+      .hasMatch(email);
+}
 
   Future<void> register() async {
     if (!_formKey.currentState!.validate()) return;
@@ -63,16 +64,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => loading = false);
 
       if (res['success'] == true) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => OtpScreen(
-              email: email.text.trim(),
-              otpFromServer: res['otp'].toString(),
-            ),
-          ),
-        );
-      } else {
+  final otp = res['otp']; // 👈 خذ OTP
+
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text("OTP Code 🔐"),
+      content: Text(
+        "Your OTP is: $otp",
+        style: const TextStyle(fontSize: 22),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => OtpScreen(
+                  email: email.text.trim(),
+                ),
+              ),
+            );
+          },
+          child: const Text("Continue"),
+        )
+      ],
+    ),
+  );
+} else {
         msg(res['error'] ?? "Registration failed ❌");
       }
     } catch (e) {
