@@ -128,13 +128,15 @@ static Future<bool> updateProfileWithImage(
   final data = _safeDecode(res);
   return data is List ? data : [];
 }
-  static Future<List<dynamic>> getMyProducts(int sellerId) async {
+ static Future<List<dynamic>> getMyProducts(String token) async {
   final res = await http.get(
-    Uri.parse("$baseUrl/products?sellerId=$sellerId"),
+    Uri.parse("$baseUrl/my-products"),
+    headers: {
+      "Authorization": "Bearer $token",
+    },
   );
 
-  final data = _safeDecode(res);
-  return data is List ? data : [];
+  return jsonDecode(res.body);
 }
 
   // ================= ADD PRODUCT =================

@@ -15,7 +15,7 @@ import 'screens/splash_router.dart';
 import 'screens/profile_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/edit_profile_screen.dart';
-import 'screens/my_products_screen.dart'
+import 'screens/my_products_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

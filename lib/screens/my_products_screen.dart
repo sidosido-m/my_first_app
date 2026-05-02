@@ -22,15 +22,28 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
   }
 
   Future<void> loadProducts() async {
-    token = await StorageService.getToken();
+    try {
+      token = await StorageService.getToken();
 
-    if (token != null) {
+      if (token == null) {
+        setState(() {
+          loading = false;
+        });
+        return;
+      }
+
       final data = await ApiService.getMyProducts(token!);
 
       setState(() {
         products = data;
         loading = false;
       });
+    } catch (e) {
+      setState(() {
+        loading = false;
+      });
+
+      debugPrint("MY PRODUCTS ERROR ❌ $e");
     }
   }
 
@@ -50,9 +63,13 @@ class _MyProductsScreenState extends State<MyProductsScreen> {
                   itemBuilder: (context, i) {
                     final p = products[i];
 
-                    return ListTile(
-                      title: Text(p['name']),
-                      subtitle: Text("${p['price']} DA"),
+                    return Card(
+                      margin: const EdgeInsets.all(10),
+                      child: ListTile(
+                        leading: const Icon(Icons.shopping_bag),
+                        title: Text(p['name'] ?? ""),
+                        subtitle: Text("${p['price']} DA"),
+                      ),
                     );
                   },
                 ),

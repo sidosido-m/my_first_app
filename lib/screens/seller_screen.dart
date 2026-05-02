@@ -39,7 +39,9 @@ class _SellerScreenState extends State<SellerScreen> {
 
   Future<void> fetchProducts() async {
     try {
-      final data = await ApiService.getMyProducts(sellerId!);
+      final token = await StorageService.getToken();
+
+      final data = await ApiService.getMyProducts(token!);
 
       setState(() {
         products = data;
