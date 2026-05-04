@@ -11,10 +11,8 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   List cart = [];
-  String? token;
-  bool isLoading = true;
-
-  double totalPrice = 0;
+  bool loading = true;
+  double total = 0;
 
   @override
   void initState() {
@@ -22,38 +20,76 @@ class _CartScreenState extends State<CartScreen> {
     loadCart();
   }
 
+  // ================= LOAD CART =================
   Future<void> loadCart() async {
-    setState(() => isLoading = true);
+    setState(() => loading = true);
 
-    token = await StorageService.getToken();
+    final token = await StorageService.getToken();
 
     if (token == null) {
-      setState(() => isLoading = false);
+      setState(() => loading = false);
       return;
     }
 
-    final data = await ApiService.getCart(token!);
+    try {
+      final data = await ApiService.getCart(token);
 
-    double total = 0;
+      double sum = 0;
 
-    for (var item in data) {
-      total += (item['price'] ?? 0) * (item['quantity'] ?? 1);
+      for (var item in data) {
+        final price = double.tryParse(item['price'].toString()) ?? 0;
+        final qty = int.tryParse(item['qty'].toString()) ?? 0;
+        sum += price * qty;
+      }
+
+      setState(() {
+        cart = data;
+        total = sum;
+        loading = false;
+      });
+    } catch (e) {
+      setState(() => loading = false);
     }
-
-    setState(() {
-      cart = data;
-      totalPrice = total;
-      isLoading = false;
-    });
   }
 
+  // ================= REMOVE =================
+  Future<void> removeItem(int id) async {
+    final token = await StorageService.getToken();
+    if (token == null) return;
+
+    await ApiService.removeFromCart(token, id);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Item removed 🗑️")),
+    );
+
+    loadCart();
+  }
+
+  // ================= UPDATE QTY =================
+  Future<void> updateQty(int id, int qty) async {
+    if (qty < 1) return;
+
+    final token = await StorageService.getToken();
+    if (token == null) return;
+
+    await ApiService.updateCartQty(token, id, qty);
+
+    loadCart();
+  }
+
+  // ================= CHECKOUT =================
   Future<void> checkout() async {
+    final token = await StorageService.getToken();
+
+    if (token == null) return;
+
     try {
-      await ApiService.checkout(token!);
+      await ApiService.checkout(token);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Order placed successfully 🎉"),
+          content: Text("Order placed ✔️"),
           backgroundColor: Colors.green,
         ),
       );
@@ -61,68 +97,80 @@ class _CartScreenState extends State<CartScreen> {
       loadCart();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error: $e"),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text("Checkout error ❌")),
       );
     }
   }
 
-  Widget buildCartItem(item) {
+  // ================= CART ITEM =================
+  Widget cartItem(item) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(10),
+
+        // ✅ صورة من Supabase
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: item['image'] != null &&
+                  item['image'].toString().isNotEmpty
+              ? Image.network(
+                  item['image'], // ✅ رابط مباشر
+                  width: 60,
+                  height: 60,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.image),
+                )
+              : const Icon(Icons.image, size: 40),
+        ),
+
+        title: Text(item['name'] ?? ""),
+
+        subtitle: Text(
+          "${item['price']} DA",
+          style: const TextStyle(color: Colors.green),
+        ),
+
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.shopping_bag,
-                size: 40, color: Colors.deepPurple),
 
-            const SizedBox(width: 10),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item['name'] ?? "",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    "${item['price']} DA",
-                    style: const TextStyle(color: Colors.green),
-                  ),
-                ],
-              ),
+            // ➖
+            IconButton(
+              icon: const Icon(Icons.remove),
+              onPressed: () {
+                if (item['qty'] > 1) {
+                  updateQty(item['id'], item['qty'] - 1);
+                }
+              },
             ),
 
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.deepPurple,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                "x${item['quantity']}",
-                style: const TextStyle(color: Colors.white),
-              ),
-            )
+            Text(
+              "${item['qty']}",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+
+            // ➕
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () {
+                updateQty(item['id'], item['qty'] + 1);
+              },
+            ),
+
+            // ❌ DELETE
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () => removeItem(item['id']),
+            ),
           ],
         ),
       ),
     );
   }
 
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -131,63 +179,75 @@ class _CartScreenState extends State<CartScreen> {
         backgroundColor: Colors.deepPurple,
       ),
 
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : cart.isEmpty
-              ? const Center(
-                  child: Text(
-                    "Your cart is empty 🛒",
-                    style: TextStyle(fontSize: 18),
+      body: RefreshIndicator(
+        onRefresh: loadCart,
+        child: loading
+            ? const Center(child: CircularProgressIndicator())
+            : cart.isEmpty
+                ? const Center(child: Text("Cart is empty 😢"))
+                : Column(
+                    children: [
+
+                      // ================= LIST =================
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: cart.length,
+                          itemBuilder: (context, index) {
+                            return cartItem(cart[index]);
+                          },
+                        ),
+                      ),
+
+                      // ================= TOTAL =================
+                      Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 5,
+                            )
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  "Total",
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                                Text(
+                                  "$total DA",
+                                  style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            SizedBox(
+                              width: double.infinity,
+                              height: 45,
+                              child: ElevatedButton(
+                                onPressed: checkout,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                ),
+                                child: const Text("Checkout 💳"),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    ],
                   ),
-                )
-              : Column(
-                  children: [
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: cart.length,
-                        itemBuilder: (context, index) {
-                          return buildCartItem(cart[index]);
-                        },
-                      ),
-                    ),
-
-                    // TOTAL SECTION
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 10,
-                          )
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Total: ${totalPrice.toStringAsFixed(2)} DA",
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-
-                          ElevatedButton(
-                            onPressed: checkout,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.deepPurple,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 20, vertical: 12),
-                            ),
-                            child: const Text("Checkout 💳"),
-                          ),
-                        ],
-                      ),
-                    )
-                  ],
-                ),
+      ),
     );
   }
 }

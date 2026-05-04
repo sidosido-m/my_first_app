@@ -1,29 +1,35 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // ✅ FIX
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
+import '../servise/supabase_storage.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
   @override
-  State<EditProfileScreen> createState() => _EditProfileScreenState();
+  State<EditProfileScreen> createState() =>
+      _EditProfileScreenState();
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final nameController = TextEditingController();
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
+  final nameCtrl = TextEditingController();
+  final userCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
+  final oldPassCtrl = TextEditingController();
+  final newPassCtrl = TextEditingController();
 
-  String? token;
-  File? imageFile;
-  String? imageUrl;
+  File? profileImage;
+  File? coverImage;
 
   bool loading = false;
-  bool isFetching = true;
+  String? token;
 
-  final String baseUrl = "https://my-server-0xa0.onrender.com";
+  final supabase = Supabase.instance.client;
+
+  Map<String, dynamic>? user;
 
   @override
   void initState() {
@@ -31,150 +37,261 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     loadUser();
   }
 
+  // ================= LOAD USER =================
   Future<void> loadUser() async {
     token = await StorageService.getToken();
 
-    if (token != null) {
-      final res = await ApiService.getProfile(token!);
-      final user = res['user'];
+    final res = await ApiService.getProfile(token!);
 
-      setState(() {
-        nameController.text = user['name'] ?? "";
-        emailController.text = user['email'] ?? "";
-        imageUrl = user['image'];
-        isFetching = false;
-      });
-    }
+    user = res['user'];
+
+    setState(() {
+      nameCtrl.text = user?['name'] ?? "";
+      userCtrl.text = user?['username'] ?? "";
+      emailCtrl.text = user?['email'] ?? "";
+    });
   }
 
-  Future<void> pickImage() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-    );
+  // ================= PICK PROFILE IMAGE =================
+  Future<void> pickProfile() async {
+    final picked = await ImagePicker()
+        .pickImage(source: ImageSource.gallery);
 
     if (picked != null) {
       setState(() {
-        imageFile = File(picked.path);
+        profileImage = File(picked.path);
       });
     }
   }
 
-  Future<void> updateProfile() async {
-    if (token == null) return;
+  // ================= PICK COVER IMAGE =================
+  Future<void> pickCover() async {
+    final picked = await ImagePicker()
+        .pickImage(source: ImageSource.gallery);
 
-    setState(() => loading = true);
+    if (picked != null) {
+      setState(() {
+        coverImage = File(picked.path);
+      });
+    }
+  }
 
+  // ================= UPLOAD (AVATARS ONLY) =================
+  Future<String?> upload(File file, String type) async {
     try {
-      await ApiService.updateProfileWithImage(
-        token!,
-        nameController.text.trim(),
-        emailController.text.trim(),
-        passwordController.text.isEmpty
-            ? null
-            : passwordController.text.trim(),
-        imageFile,
-      );
+      final name =
+          "${type}_${DateTime.now().millisecondsSinceEpoch}.jpg";
 
-      if (!mounted) return;
+      await supabase.storage
+          .from('avatars') // 🔥 ثابت كما طلبت
+          .upload(name, file);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Profile updated ✅"),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      Navigator.pop(context); // رجوع للبروفايل
+      return supabase.storage
+          .from('avatars')
+          .getPublicUrl(name);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Update failed ❌"),
-        ),
-      );
+      debugPrint("UPLOAD ERROR: $e");
+      return null;
     }
-
-    setState(() => loading = false);
   }
 
-  ImageProvider _buildImage() {
-    if (imageFile != null) return FileImage(imageFile!);
+  // ================= SAVE =================
+ Future<void> save() async {
+  setState(() => loading = true);
 
-    if (imageUrl != null && imageUrl!.isNotEmpty) {
-      return NetworkImage("$baseUrl/uploads/$imageUrl");
-    }
+  String? profileUrl = user?['image'];
+  String? bgUrl = user?['background_image'];
 
-    return const AssetImage("assets/default_user.png");
+  // ================= AVATAR =================
+  if (profileImage != null) {
+    profileUrl =
+        await SupabaseStorage.uploadAvatar(profileImage!);
   }
 
-  @override
-  void dispose() {
-    nameController.dispose();
-    emailController.dispose();
-    passwordController.dispose();
-    super.dispose();
+  // ================= BACKGROUND =================
+  if (coverImage != null) {
+    bgUrl =
+        await SupabaseStorage.uploadBackground(coverImage!);
   }
 
+  await ApiService.updateProfile(
+    token!,
+    nameCtrl.text.trim(),
+    emailCtrl.text.trim(),
+    profileUrl,
+    bgUrl, // ⚠️ لازم تضيفها في API
+  );
+
+  setState(() => loading = false);
+
+  Navigator.pop(context, true);
+}
+
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
+    final cover = coverImage != null
+        ? FileImage(coverImage!)
+        : (user?['background_image'] != null
+            ? NetworkImage(user!['background_image'])
+            : const AssetImage("assets/cover.jpg"))
+        as ImageProvider;
+
+    final avatar = profileImage != null
+        ? FileImage(profileImage!)
+        : (user?['image'] != null
+            ? NetworkImage(user!['image'])
+            : const AssetImage("assets/user.png"))
+        as ImageProvider;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Edit Profile ✏️"),
+        title: const Text("Edit Profile"),
         backgroundColor: Colors.deepPurple,
       ),
-      body: isFetching
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
 
-                  GestureDetector(
-                    onTap: pickImage,
-                    child: CircleAvatar(
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Column(
+              children: [
+
+                // ================= COVER =================
+                GestureDetector(
+                  onTap: pickCover,
+                  child: Stack(
+                    children: [
+                      Container(
+                        height: 200,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: cover,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+
+                      Positioned(
+                        bottom: 10,
+                        right: 10,
+                        child: CircleAvatar(
+                          backgroundColor: Colors.black54,
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.edit,
+                              color: Colors.white,
+                            ),
+                            onPressed: pickCover,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ================= AVATAR =================
+                Stack(
+                  children: [
+                    CircleAvatar(
                       radius: 50,
-                      backgroundImage: _buildImage(),
+                      backgroundImage: avatar,
                     ),
-                  ),
 
-                  const SizedBox(height: 20),
-
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(labelText: "Name"),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  TextField(
-                    controller: emailController,
-                    decoration: const InputDecoration(labelText: "Email"),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  TextField(
-                    controller: passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: "New Password",
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: pickProfile,
+                        child: const CircleAvatar(
+                          radius: 15,
+                          backgroundColor: Colors.deepPurple,
+                          child: Icon(
+                            Icons.edit,
+                            size: 15,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
+                ),
 
-                  const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: loading ? null : updateProfile,
-                      child: loading
-                          ? const CircularProgressIndicator()
-                          : const Text("Save Changes"),
-                    ),
+                // ================= FIELDS =================
+                Padding(
+                  padding: const EdgeInsets.all(15),
+                  child: Column(
+                    children: [
+
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(
+                            labelText: "Name"),
+                      ),
+
+                      TextField(
+                        controller: userCtrl,
+                        decoration: const InputDecoration(
+                            labelText: "Username"),
+                      ),
+
+                      TextField(
+                        controller: emailCtrl,
+                        decoration: const InputDecoration(
+                            labelText: "Email"),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      TextField(
+                        controller: oldPassCtrl,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                            labelText: "Old Password"),
+                      ),
+
+                      TextField(
+                        controller: newPassCtrl,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                            labelText: "New Password"),
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      // ================= SAVE =================
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: loading ? null : save,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepPurple,
+                          ),
+                          child: const Text("Save Changes"),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+
+          // ================= LOADING =================
+          if (loading)
+            Container(
+              color: Colors.black26,
+              child: const Center(
+                child: CircularProgressIndicator(),
               ),
             ),
+        ],
+      ),
     );
   }
 }

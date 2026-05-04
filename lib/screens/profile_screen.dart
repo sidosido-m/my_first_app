@@ -1,6 +1,4 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
@@ -8,245 +6,259 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() =>
+      _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  final nameController = TextEditingController();
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
+class _ProfileScreenState extends State<ProfileScreen>
+    with SingleTickerProviderStateMixin {
+  Map<String, dynamic>? user;
+  List products = [];
 
-  String? token;
-  String? role;
+  bool loading = true;
+  String baseUrl =
+      "https://my-server-0xa0.onrender.com";
 
-  bool loading = false;
-  bool isFetching = true;
-
-  File? imageFile;
-  String? imageUrl;
-
-  final String baseUrl = "https://my-server-0xa0.onrender.com";
+  late TabController tabController;
 
   @override
   void initState() {
     super.initState();
-    loadUser();
+    tabController = TabController(length: 2, vsync: this);
+    loadProfile();
   }
 
- Future<void> loadUser() async {
-  setState(() => isFetching = true);
+  Future<void> loadProfile() async {
+    final token = await StorageService.getToken();
 
-  token = await StorageService.getToken();
-  role = await StorageService.getRole();
+    final res = await ApiService.getProfile(token!);
+    final id = res['user']['id'];
 
-  if (token != null) {
-    try {
-      final res = await ApiService.getProfile(token!);
-      final user = res['user']; // 👈 هنا التعديل
+    final seller =
+        await ApiService.getSeller(id);
 
-      setState(() {
-        nameController.text = user['name'] ?? "";
-        emailController.text = user['email'] ?? "";
-        imageUrl = user['image'];
-      });
-    } catch (e) {
-      showMsg("Failed to load profile ❌");
-    }
+    setState(() {
+      user = seller['seller'];
+      products = seller['products'];
+      loading = false;
+    });
   }
 
-  setState(() => isFetching = false);
-}
+  // ================= IMAGE HELPER =================
+  String fixImage(String? img) {
+    if (img == null || img.isEmpty) return "";
 
-  Future<void> pickImage() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-    );
+    if (img.startsWith("http")) return img;
 
-    if (picked != null) {
-      setState(() {
-        imageFile = File(picked.path);
-      });
-    }
-  }
-
-  void showMsg(String msg, {bool ok = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: ok ? Colors.green : Colors.red,
-      ),
-    );
-  }
-
-  Future<void> updateProfile() async {
-    if (token == null) return;
-
-    if (nameController.text.isEmpty || emailController.text.isEmpty) {
-      showMsg("Fill required fields ❌");
-      return;
-    }
-
-    setState(() => loading = true);
-
-    try {
-      await ApiService.updateProfileWithImage(
-        token!,
-        nameController.text.trim(),
-        emailController.text.trim(),
-        passwordController.text.trim().isEmpty
-            ? null
-            : passwordController.text.trim(),
-        imageFile,
-      );
-
-      showMsg("Profile updated ✔️", ok: true);
-    } catch (e) {
-      showMsg("Update failed ❌");
-    }
-
-    setState(() => loading = false);
-  }
-
-  Future<void> logout() async {
-    await StorageService.clearToken();
-    await StorageService.clearUserId();
-    await StorageService.clearRole();
-
-    if (!mounted) return;
-
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/login',
-      (route) => false,
-    );
+    return "$baseUrl/uploads/$img";
   }
 
   @override
-  void dispose() {
-    nameController.dispose();
-    emailController.dispose();
-    passwordController.dispose();
-    super.dispose();
-  }
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
 
-  ImageProvider _buildImage() {
-    if (imageFile != null) {
-      return FileImage(imageFile!);
-    }
-
-    if (imageUrl != null && imageUrl!.isNotEmpty) {
-      return NetworkImage("$baseUrl/uploads/$imageUrl");
-    }
-
-    return const AssetImage("assets/default_user.png");
-  }
-
- @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: const Text("My Profile 👤"),
-      backgroundColor: Colors.deepPurple,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.edit),
-          onPressed: () {
-            Navigator.pushNamed(context, '/edit-profile');
-          },
-        )
-      ],
-    ),
-
-    body: isFetching
-        ? const Center(child: CircularProgressIndicator())
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
               children: [
 
-                // ================= IMAGE =================
-                CircleAvatar(
-                  radius: 55,
-                  backgroundColor: Colors.deepPurple,
-                  child: CircleAvatar(
-                    radius: 50,
-                    backgroundImage: _buildImage(),
-                  ),
+                // ================= COVER =================
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+
+                    Container(
+                      height: 200,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        image: DecorationImage(
+                          final bg = user?['background_image'];
+                              ? NetworkImage(
+                                  fixImage(user!['background_image']))
+                              : const AssetImage(
+                                      "assets/cover.jpg")
+                                  as ImageProvider,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+
+                    Positioned(
+                      top: 40,
+                      left: 10,
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back,
+                            color: Colors.white),
+                        onPressed: () =>
+                            Navigator.pop(context),
+                      ),
+                    ),
+
+                    Positioned(
+                      bottom: -40,
+                      left: 20,
+                      child: CircleAvatar(
+                        radius: 45,
+                        backgroundImage:
+                            user?['image'] != null
+                                ? NetworkImage(
+                                    fixImage(user!['image']))
+                                : const AssetImage(
+                                        "assets/user.png")
+                                    as ImageProvider,
+                      ),
+                    ),
+                  ],
                 ),
 
-                const SizedBox(height: 10),
+                const SizedBox(height: 50),
 
                 // ================= NAME =================
                 Text(
-                  nameController.text,
+                  user?['name'] ?? "",
                   style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold),
                 ),
 
-                const SizedBox(height: 5),
-
-                // ================= EMAIL =================
                 Text(
-                  emailController.text,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
+                  "@${user?['username'] ?? 'user'}",
+                  style: const TextStyle(color: Colors.grey),
+                ),
+
+                const SizedBox(height: 15),
+
+                // ================= STATS =================
+                Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceEvenly,
+                  children: [
+
+                    _stat("Followers", "120"),
+                    _stat("Following", "80"),
+                    _stat("Rating", "4.5 ⭐"),
+                  ],
                 ),
 
                 const SizedBox(height: 10),
 
-                // ================= ROLE =================
-                Chip(
-                  label: Text("Role: ${role ?? 'user'}"),
-                ),
-
-                const SizedBox(height: 30),
-                SizedBox(
-  width: double.infinity,
-  height: 50,
-  child: ElevatedButton.icon(
-    onPressed: () {
-      Navigator.pushNamed(context, '/my-products');
-    },
-    icon: const Icon(Icons.inventory_2),
-    label: const Text("My Products 📦"),
-  ),
-),
-
-                // ================= BUTTONS =================
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/orders');
-                    },
-                    icon: const Icon(Icons.receipt_long),
-                    label: const Text("My Orders"),
-                  ),
-                ),
-
-
-                const SizedBox(height: 10),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
+                // ================= EDIT BUTTON =================
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushNamed(
+                        context, "/edit-profile");
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(20),
                     ),
-                    onPressed: logout,
-                    icon: const Icon(Icons.logout),
-                    label: const Text("Logout"),
+                  ),
+                  child:
+                      const Text("Edit Profile ✏️"),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ================= TABS =================
+                TabBar(
+                  controller: tabController,
+                  labelColor: Colors.deepPurple,
+                  tabs: const [
+                    Tab(text: "Products"),
+                    Tab(text: "About"),
+                  ],
+                ),
+
+                Expanded(
+                  child: TabBarView(
+                    controller: tabController,
+                    children: [
+
+                      // ================= PRODUCTS =================
+                      ListView.builder(
+                        itemCount: products.length,
+                        itemBuilder: (context, i) {
+                          final p = products[i];
+
+                          return Card(
+                            margin:
+                                const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5),
+                            child: ListTile(
+                              leading: ClipRRect(
+                                borderRadius:
+                                    BorderRadius.circular(8),
+                                child: Image.network(
+                                  fixImage(p['image']),
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+
+                              title: Text(p['name'] ?? ""),
+
+                              subtitle: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text("${p['price']} DA"),
+                                  Text(
+                                    "Added: ${p['created_at'] ?? 'unknown'}",
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+
+                      // ================= ABOUT =================
+                      const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "About Seller",
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            SizedBox(height: 10),
+                            Text(
+                              "This seller is active on the marketplace and sells quality products.",
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-  );
-}
+    );
+  }
+
+  Widget _stat(String title, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold),
+        ),
+        Text(title),
+      ],
+    );
+  }
 }

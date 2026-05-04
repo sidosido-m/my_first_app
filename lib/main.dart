@@ -16,10 +16,18 @@ import 'screens/profile_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/edit_profile_screen.dart';
 import 'screens/my_products_screen.dart';
+import 'screens/seller_dashboard_screen.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await StorageService.init();
+
+  await Supabase.initialize(
+    url: "https://YOUR_PROJECT.supabase.co",
+    anonKey: "YOUR_ANON_KEY",
+  );
+
   runApp(const MyApp());
 }
 
@@ -50,9 +58,18 @@ class MyApp extends StatelessWidget {
 
         // ================= PROFILE =================
         '/profile': (context) => const ProfileScreen(),
+        '/seller-dashboard': (_) => const SellerDashboardScreen(),
       
       '/edit-profile': (context) => const EditProfileScreen(),
       '/my-products': (context) => const MyProductsScreen(),
+      '/edit-product': (context) {
+  final product = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+
+  return EditProductScreen(
+    product: product,
+    token: "mysupersecretkey_2026_secure_app_!@#$", // ❗ مؤقت
+  );
+},
 },
       // ================= PRODUCT DETAILS =================
       onGenerateRoute: (settings) {

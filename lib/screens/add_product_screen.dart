@@ -3,70 +3,90 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 
-class AddProductScreen extends StatefulWidget {
-  final int sellerId;
+class EditProductScreen extends StatefulWidget {
+  final Map<String, dynamic> product;
   final String token;
 
-  const AddProductScreen({
+  const EditProductScreen({
     super.key,
-    required this.sellerId,
+    required this.product,
     required this.token,
   });
 
   @override
-  State<AddProductScreen> createState() => _AddProductScreenState();
+  State<EditProductScreen> createState() =>
+      _EditProductScreenState();
 }
 
-class _AddProductScreenState extends State<AddProductScreen> {
+class _EditProductScreenState extends State<EditProductScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final nameController = TextEditingController();
-  final priceController = TextEditingController();
+  late TextEditingController nameController;
+  late TextEditingController priceController;
 
-  File? imageFile;
+  File? newImageFile;
   bool isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+
+    nameController =
+        TextEditingController(text: widget.product['name']);
+    priceController = TextEditingController(
+        text: widget.product['price'].toString());
+  }
+
   Future<void> pickImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
+    final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
       imageQuality: 80,
     );
 
     if (picked != null) {
       setState(() {
-        imageFile = File(picked.path);
+        newImageFile = File(picked.path);
       });
     }
   }
 
-  Future<void> addProduct() async {
+  Future<void> updateProduct() async {
+    if (isLoading) return;
+
     if (!_formKey.currentState!.validate()) return;
 
-    if (imageFile == null) {
-      _showMsg("Please select an image ❌", false);
+    final price =
+        double.tryParse(priceController.text.trim());
+
+    if (price == null) {
+      _showMsg("Invalid price ❌", false);
       return;
     }
 
     setState(() => isLoading = true);
 
     try {
-      bool success = await ApiService.addProductWithImage(
-        name: nameController.text.trim(),
-        price: double.parse(priceController.text.trim()),
-        sellerId: widget.sellerId,
-        token: widget.token,
-        imageFile: imageFile!,
+      String? imageUrl;
+
+      // ✅ إذا اختار صورة جديدة
+      if (newImageFile != null) {
+        imageUrl =
+            await ApiService.uploadImage(newImageFile!);
+      }
+
+      await ApiService.updateProduct(
+        widget.token,
+        widget.product['id'],
+        nameController.text.trim(),
+        price.toString(),
+        imageUrl, // ممكن null
       );
 
       setState(() => isLoading = false);
 
-      if (success) {
-        _showMsg("Product added successfully ✅", true);
-        Navigator.pop(context, true);
-      } else {
-        _showMsg("Upload failed ❌", false);
-      }
+      _showMsg("Updated successfully ✅", true);
+
+      Navigator.pop(context, true);
     } catch (e) {
       setState(() => isLoading = false);
       _showMsg("Error: $e", false);
@@ -77,7 +97,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: success ? Colors.green : Colors.red,
+        backgroundColor:
+            success ? Colors.green : Colors.red,
       ),
     );
   }
@@ -91,9 +112,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final oldImage = widget.product['image'];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Add Product"),
+        title: const Text("Edit Product ✏️"),
         backgroundColor: Colors.deepPurple,
       ),
 
@@ -106,53 +129,78 @@ class _AddProductScreenState extends State<AddProductScreen> {
               child: Column(
                 children: [
 
-                  // IMAGE PREVIEW
-                  GestureDetector(
-                    onTap: pickImage,
-                    child: Container(
-                      height: 180,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.deepPurple),
+                  // ================= IMAGE =================
+                  Stack(
+                    children: [
+                      GestureDetector(
+                        onTap: pickImage,
+                        child: Container(
+                          height: 180,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius:
+                                BorderRadius.circular(15),
+                          ),
+                          child: ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(15),
+                            child: newImageFile != null
+                                ? Image.file(
+                                    newImageFile!,
+                                    fit: BoxFit.cover,
+                                  )
+                                : (oldImage != null &&
+                                        oldImage
+                                            .toString()
+                                            .isNotEmpty)
+                                    ? Image.network(
+                                        oldImage,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __,
+                                                ___) =>
+                                            const Icon(
+                                                Icons
+                                                    .image_not_supported),
+                                      )
+                                    : const Icon(Icons.image,
+                                        size: 50),
+                          ),
+                        ),
                       ),
-                      child: imageFile != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(15),
-                              child: Image.file(
-                                imageFile!,
-                                fit: BoxFit.cover,
-                              ),
-                            )
-                          : const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.add_a_photo,
-                                    size: 50, color: Colors.deepPurple),
-                                SizedBox(height: 10),
-                                Text("Tap to add image"),
-                              ],
-                            ),
-                    ),
+
+                      // زر تغيير الصورة
+                      Positioned(
+                        bottom: 10,
+                        right: 10,
+                        child: CircleAvatar(
+                          backgroundColor: Colors.black54,
+                          child: IconButton(
+                            icon: const Icon(Icons.edit,
+                                color: Colors.white),
+                            onPressed: pickImage,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
 
                   const SizedBox(height: 20),
 
-                  // NAME
+                  // ================= NAME =================
                   TextFormField(
                     controller: nameController,
                     decoration: const InputDecoration(
                       labelText: "Product Name",
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) =>
-                        value!.isEmpty ? "Name required" : null,
+                    validator: (v) =>
+                        v!.isEmpty ? "Required" : null,
                   ),
 
                   const SizedBox(height: 15),
 
-                  // PRICE
+                  // ================= PRICE =================
                   TextFormField(
                     controller: priceController,
                     keyboardType: TextInputType.number,
@@ -160,26 +208,28 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       labelText: "Price (DA)",
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) =>
-                        value!.isEmpty ? "Price required" : null,
+                    validator: (v) =>
+                        v!.isEmpty ? "Required" : null,
                   ),
 
                   const SizedBox(height: 25),
 
-                  // BUTTON
+                  // ================= BUTTON =================
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: isLoading ? null : addProduct,
+                      onPressed:
+                          isLoading ? null : updateProduct,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.deepPurple,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius:
+                              BorderRadius.circular(12),
                         ),
                       ),
                       child: const Text(
-                        "ADD PRODUCT",
+                        "UPDATE PRODUCT",
                         style: TextStyle(fontSize: 16),
                       ),
                     ),
@@ -189,12 +239,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
             ),
           ),
 
-          // LOADING OVERLAY
+          // ================= LOADING =================
           if (isLoading)
             Container(
               color: Colors.black.withOpacity(0.3),
               child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+                child: CircularProgressIndicator(
+                    color: Colors.white),
               ),
             ),
         ],

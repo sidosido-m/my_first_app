@@ -50,26 +50,26 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   // ================= ADD TO CART =================
-  Future<void> addToCart(int id) async {
-    setState(() => adding = true);
+ Future<void> addToCart(product) async {
+  final token = await StorageService.getToken();
 
-    try {
-      final token = await StorageService.getToken();
-
-      if (token == null) {
-        msg("Please login first");
-        return;
-      }
-
-      await ApiService.addToCart(token, id);
-
-      msg("Added to cart 🛒", ok: true);
-    } catch (e) {
-      msg("Error adding to cart");
-    }
-
-    setState(() => adding = false);
+  if (token == null) {
+    Navigator.pushNamed(context, '/login');
+    return;
   }
+
+  try {
+    await ApiService.addToCart(token, product['id']);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Added to cart ✔️")),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Error ❌")),
+    );
+  }
+}
 
   // ================= UI =================
   @override

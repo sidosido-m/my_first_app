@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
+import 'seller_profile_screen.dart';
+import 'seller_dashboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,11 +12,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  Map<String, dynamic>? userData;
   List products = [];
   List filtered = [];
 
   bool loading = true;
+  bool adding = false;
   bool isLoggedIn = false;
+  int cartCount = 0;
   String? role;
 
   final String baseUrl = "https://my-server-0xa0.onrender.com";
@@ -27,16 +32,47 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ================= INIT =================
   Future<void> init() async {
+    
     final token = await StorageService.getToken();
     final userRole = await StorageService.getRole();
+    final res = await ApiService.getProfile(token!);
+
+setState(() {
+  userData = res['user'];
+});
 
     setState(() {
       isLoggedIn = token != null;
       role = userRole;
     });
-
+    await loadCartCount();
     await loadProducts();
   }
+   // ================= CART =================
+  Future<void> addToCart(int productId) async {
+  final token = await StorageService.getToken();
+
+  if (token == null) {
+    Navigator.pushNamed(context, '/login');
+    return;
+  }
+
+  setState(() => adding = true);
+
+  try {
+    await ApiService.addToCart(token, productId);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Added to cart ✔️")),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Error ❌")),
+    );
+  }
+
+  setState(() => adding = false);
+}
 
   // ================= LOAD PRODUCTS =================
   Future<void> loadProducts() async {
@@ -78,20 +114,38 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+// ================= LOAD CARTCOUNT =================
+  Future<void> loadCartCount() async {
+  final token = await StorageService.getToken();
+  if (token == null) return;
+
+  final cart = await ApiService.getCart(token);
+  setState(() {
+    cartCount = cart.length;
+  });
+}
+
   // ================= DRAWER =================
   Widget buildDrawer() {
     return Drawer(
       child: ListView(
         children: [
-          const UserAccountsDrawerHeader(
-            decoration: BoxDecoration(color: Colors.deepPurple),
-            accountName: Text("Welcome 👋"),
-            accountEmail: Text("User account"),
-            currentAccountPicture: CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person, color: Colors.deepPurple),
-            ),
-          ),
+           UserAccountsDrawerHeader(
+  decoration: const BoxDecoration(color: Colors.deepPurple),
+  accountName: Text(
+  userData != null ? userData!['name'] ?? "User" : "User",
+),
+  accountEmail: Text(userData?['email'] ?? ""),
+
+  currentAccountPicture: CircleAvatar(
+    backgroundImage: userData?['image'] != null
+        ? NetworkImage(userData!['image'])
+        : null,
+    child: userData?['image'] == null
+        ? const Icon(Icons.person, color: Colors.deepPurple)
+        : null,
+  ),
+),
 
           ListTile(
             leading: const Icon(Icons.shopping_cart),
@@ -119,45 +173,49 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const Divider(),
 
-          if (role == "seller")
-            ListTile(
-              leading: const Icon(Icons.store, color: Colors.green),
-              title: const Text("Seller Dashboard 🏪"),
-              onTap: () {
-                Navigator.pushNamed(context, '/seller');
-              },
-            )
-          else
-            ListTile(
-              leading: const Icon(Icons.store, color: Colors.orange),
-              title: const Text("Become a Seller 🏪"),
-              onTap: () async {
-                final token = await StorageService.getToken();
-
-                if (token == null) return;
-
-                try {
-                  await ApiService.becomeSeller(token);
-
-                  await StorageService.saveRole("seller");
-
-                  setState(() {
-                    role = "seller";
-                  });
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("You are now a seller 🎉"),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Error ❌")),
-                  );
-                }
-              },
+          role == "seller"
+    ? ListTile(
+        leading: const Icon(Icons.dashboard),
+        title: const Text("Dashboard 📊"),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SellerDashboardScreen(),
             ),
+          );
+        },
+      )
+    : ListTile(
+        leading: const Icon(Icons.store, color: Colors.orange),
+        title: const Text("Become a Seller 🏪"),
+        onTap: () async {
+          final token = await StorageService.getToken();
+          if (token == null) return;
+
+          try {
+            await ApiService.becomeSeller(token);
+
+            await StorageService.saveRole("seller");
+
+            setState(() {
+              role = "seller";
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("You are now a seller 🎉"),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Error ❌")),
+            );
+          }
+        },
+      ),
+            
 
           const Divider(),
 
@@ -181,6 +239,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ================= PRODUCT CARD =================
   Widget productCard(product) {
+    bool liked = product['liked'] ?? false;
+    bool isLiked = false;
     return GestureDetector(
       onTap: () => openProduct(product),
       child: Container(
@@ -201,13 +261,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(15),
                 ),
-                child: Image.network(
-                  product['image'] != null
-                      ? "$baseUrl/uploads/${product['image']}"
-                      : "https://via.placeholder.com/150",
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+                child: 
+  Image.network(
+  product['image'] != null &&
+          product['image'].toString().isNotEmpty
+      ? product['image']
+      : "https://via.placeholder.com/150",
+  width: double.infinity,
+  fit: BoxFit.cover,
+
+  // 🔥 Loading جميل
+  loadingBuilder: (context, child, progress) {
+    if (progress == null) return child;
+    return const Center(
+      child: CircularProgressIndicator(),
+    );
+  },
+
+  // 🔥 Error fallback
+  errorBuilder: (_, __, ___) {
+    return const Center(
+      child: Icon(Icons.broken_image, size: 40),
+    );
+  },
+),
               ),
             ),
 
@@ -218,14 +295,36 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
 
                   // NAME
-                  Text(
-                    product['name'] ?? "",
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  GestureDetector(
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SellerProfileScreen(
+          sellerId: product['seller_id'],
+        ),
+      ),
+    );
+  },
+  child: Row(
+    children: [
+      const Icon(Icons.store, size: 14, color: Colors.grey),
+      const SizedBox(width: 5),
+      Expanded(
+        child: Text(
+          product['seller_name'] ?? "Unknown",
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.blue,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    ],
+  ),
+),
 
                   const SizedBox(height: 5),
 
@@ -252,21 +351,67 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 5),
 
                   // BUTTON
-                  SizedBox(
-                    width: double.infinity,
-                    height: 30,
-                    child: ElevatedButton(
-                      onPressed: () => openProduct(product),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        padding: EdgeInsets.zero,
-                      ),
-                      child: const Text(
-                        "View",
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  )
+                 // زر View
+    SizedBox(
+      width: double.infinity,
+      height: 30,
+      child: ElevatedButton(
+        onPressed: () => openProduct(product),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.grey,
+        ),
+        child: const Text("View"),
+      ),
+    ),
+
+    const SizedBox(height: 5),
+
+    // زر Add to Cart
+    SizedBox(
+      width: double.infinity,
+      height: 30,
+      child: ElevatedButton(
+        onPressed: adding ? null : () => addToCart(product['id']),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.deepPurple,
+        ),
+        child: adding
+            ? const SizedBox(
+                width: 15,
+                height: 15,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Text("Add 🛒"),
+      ),
+    ),
+   Positioned(
+  top: 5,
+  right: 5,
+  child: GestureDetector(
+    onTap: () async {
+      final token = await StorageService.getToken();
+      if (token == null) return;
+
+      final result = await ApiService.toggleLike(
+        token,
+        product['id'],
+      );
+
+      setState(() {
+        product['liked'] = result;
+      });
+    },
+    child: Icon(
+      product['liked'] == true
+          ? Icons.favorite
+          : Icons.favorite_border,
+      color: Colors.red,
+    ),
+  ),
+),
                 ],
               ),
             )
@@ -289,12 +434,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
         actions: isLoggedIn
             ? [
-                IconButton(
-                  icon: const Icon(Icons.shopping_cart),
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/cart');
-                  },
-                ),
+               Stack(
+  children: [
+    IconButton(
+      icon: const Icon(Icons.shopping_cart),
+      onPressed: () async {
+        await Navigator.pushNamed(context, '/cart');
+        loadCartCount(); // 🔥 تحديث بعد الرجوع
+      },
+    ),
+    if (cartCount > 0)
+      Positioned(
+        right: 6,
+        top: 6,
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            "$cartCount",
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+            ),
+          ),
+        ),
+      )
+  ],
+)
               ]
             : [
                 TextButton(

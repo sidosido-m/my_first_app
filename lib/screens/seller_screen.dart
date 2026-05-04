@@ -17,7 +17,6 @@ class _SellerScreenState extends State<SellerScreen> {
   String? token;
   int? sellerId;
 
-  // ❌ لا تستخدم IP محلي في production
   final String baseUrl = "https://my-server-0xa0.onrender.com";
 
   @override
@@ -40,7 +39,6 @@ class _SellerScreenState extends State<SellerScreen> {
   Future<void> fetchProducts() async {
     try {
       final token = await StorageService.getToken();
-
       final data = await ApiService.getMyProducts(token!);
 
       setState(() {
@@ -102,7 +100,8 @@ class _SellerScreenState extends State<SellerScreen> {
                 token!,
                 p['id'],
                 nameCtrl.text,
-                double.parse(priceCtrl.text),
+                priceCtrl.text,
+                null,
               );
 
               Navigator.pop(context);
@@ -166,9 +165,7 @@ class _SellerScreenState extends State<SellerScreen> {
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : products.isEmpty
-              ? const Center(
-                  child: Text("No products yet 😢"),
-                )
+              ? const Center(child: Text("No products yet 😢"))
               : RefreshIndicator(
                   onRefresh: fetchProducts,
                   child: ListView.builder(
@@ -185,6 +182,8 @@ class _SellerScreenState extends State<SellerScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+
+                            // ================= IMAGE =================
                             if (p['image'] != null)
                               ClipRRect(
                                 borderRadius:
@@ -192,10 +191,12 @@ class _SellerScreenState extends State<SellerScreen> {
                                   top: Radius.circular(12),
                                 ),
                                 child: Image.network(
-                                  "$baseUrl/uploads/${p['image']}",
-                                  height: 160,
+                                  p['image'],
                                   width: double.infinity,
+                                  height: 200,
                                   fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      const Icon(Icons.image),
                                 ),
                               ),
 

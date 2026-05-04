@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ApiService {
   static const String baseUrl = "https://my-server-0xa0.onrender.com";
@@ -15,7 +16,37 @@ class ApiService {
       if (token != null) "Authorization": "Bearer $token",
     };
   }
+  // ================= uploadImage =================
+  static Future<String?> uploadImage(File file) async {
+  try {
+    final supabase = Supabase.instance.client;
 
+    final fileName =
+        "${DateTime.now().millisecondsSinceEpoch}.jpg";
+
+    await supabase.storage
+        .from('avatars')
+        .upload(fileName, file);
+
+    final url = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+    return url;
+
+  } catch (e) {
+    print("UPLOAD ERROR ❌ $e");
+    return null;
+  }
+}
+// ================= uploadBackground =================
+Future<String> uploadBackground(File file) async {
+  final fileName = "bg_${DateTime.now().millisecondsSinceEpoch}.jpg";
+
+  await supabase.storage.from('backgrounds').upload(fileName, file);
+
+  return supabase.storage.from('backgrounds').getPublicUrl(fileName);
+}
   // ================= LOGIN =================
   static Future<Map<String, dynamic>> loginUser(
   String email,
@@ -87,7 +118,6 @@ class ApiService {
     return jsonDecode(res.body);
   }
 
-
   // ================= PROFILE WITH IMAGE =================
 static Future<bool> updateProfileWithImage(
   String token,
@@ -96,29 +126,25 @@ static Future<bool> updateProfileWithImage(
   String? password,
   File? image,
 ) async {
-  var request = http.MultipartRequest(
-    'PUT',
-    Uri.parse('$baseUrl/profile'),
-  );
 
-  request.headers['Authorization'] = 'Bearer $token';
-
-  request.fields['name'] = name;
-  request.fields['email'] = email;
-
-  if (password != null && password.isNotEmpty) {
-    request.fields['password'] = password;
-  }
+  String? imageUrl;
 
   if (image != null) {
-    request.files.add(
-      await http.MultipartFile.fromPath('image', image.path),
-    );
+    imageUrl = await uploadImage(image);
   }
 
-  var response = await request.send();
+  final res = await http.put(
+    Uri.parse("$baseUrl/profile"),
+    headers: jsonHeader(token),
+    body: jsonEncode({
+      "name": name,
+      "email": email,
+      "password": password,
+      "image": imageUrl, // 🔥 مهم
+    }),
+  );
 
-  return response.statusCode == 200;
+  return res.statusCode == 200;
 }
 
   // ================= PRODUCTS =================
@@ -183,31 +209,105 @@ static Future<bool> updateProfileWithImage(
     return res.statusCode >= 200 && res.statusCode < 300;
   }
 
-  // ================= UPDATE PRODUCT =================
-  static Future<void> updateProduct(
-    String token,
-    int id,
-    String name,
-    double price,
-  ) async {
-    final res = await http.put(
-      Uri.parse("$baseUrl/products/$id"),
-      headers: jsonHeader(token),
-      body: jsonEncode({
-        "name": name,
-        "price": price,
-      }),
-    );
+// ================= UPDATE PRODUCT =================
+static Future<void> updateProduct(
+  String token,
+  int productId,
+  String name,
+  String price,
+  String? image,
+) async {
+  final res = await http.put(
+    Uri.parse("$baseUrl/products/$productId"),
+    headers: {
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    },
+    body: jsonEncode({
+      "name": name,
+      "price": price,
+      "image": image,
+    }),
+  );
 
-    _safeDecode(res);
+  if (res.statusCode != 200) {
+    throw Exception("Update product failed");
   }
+}
+  // ================= UPDATE PROFILE =================
+  static Future<void> updateProfile(
+  String token,
+  String name,
+  String email,
+  String? imageUrl,
+) async {
+  final res = await http.put(
+    Uri.parse("$baseUrl/profile"),
+    headers: {
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    },
+    body: jsonEncode({
+      "name": name,
+      "email": email,
+      "image": imageUrl,
+    }),
+  );
+
+  if (res.statusCode != 200) {
+    throw Exception("Profile update failed");
+  }
+}
   // ================= SELLER =================
   static Future<Map<String, dynamic>> getSeller(int id) async {
   final res = await http.get(
     Uri.parse("$baseUrl/seller/$id"),
   );
 
-  return _safeDecode(res);
+  return jsonDecode(res.body);
+}
+ // ================= SELLER PRODUCT =================
+ static Future<List<dynamic>> getSellerProducts(int id) async {
+  final res = await http.get(
+    Uri.parse("$baseUrl/seller/$id/products"),
+  );
+
+  final data = jsonDecode(res.body);
+  return data is List ? data : [];
+}
+ // ================= RATE SELLER =================
+static Future<void> rateSeller(
+    String token,
+    int sellerId,
+    double rating,
+) async {
+  final res = await http.post(
+    Uri.parse("$baseUrl/seller/rate"),
+    headers: {
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    },
+    body: jsonEncode({
+      "sellerId": sellerId,
+      "rating": rating,
+    }),
+  );
+
+  if (res.statusCode != 200) {
+    throw Exception("Rating failed");
+  }
+}
+
+// ================= SELLER DASHBOARD =================
+static Future<Map<String, dynamic>> getSellerDashboard(String token) async {
+  final res = await http.get(
+    Uri.parse("$baseUrl/seller-dashboard"),
+    headers: {
+      "Authorization": "Bearer $token",
+    },
+  );
+
+  return jsonDecode(res.body);
 }
  // ================= PROFILE =================
 static Future<Map<String, dynamic>> getProfile(String token) async {
@@ -218,7 +318,9 @@ static Future<Map<String, dynamic>> getProfile(String token) async {
     },
   );
 
-  return jsonDecode(res.body);
+  final data = jsonDecode(res.body);
+
+  return data;
 }
 // ================= BECOME SELLER =================
 static Future<void> becomeSeller(String token) async {
@@ -254,7 +356,64 @@ static Future<void> sendMessage(
     }),
   );
 }
+// ==============FOLLOW================
+static Future<bool> followSeller(
+    String token, int sellerId) async {
+  
+  final res = await http.post(
+    Uri.parse("$baseUrl/follow/$sellerId"),
+    headers: jsonHeader(token),
+  );
 
+  final data = _safeDecode(res);
+  return data['following'];
+}
+
+static Future<List<dynamic>> getFollowers(int sellerId) async {
+  final res = await http.get(
+    Uri.parse("$baseUrl/followers/$sellerId"),
+  );
+
+  return jsonDecode(res.body);
+}
+
+static Future<List<dynamic>> getFollowing(int userId) async {
+  final res = await http.get(
+    Uri.parse("$baseUrl/following/$userId"),
+  );
+
+  return jsonDecode(res.body);
+}
+// ==============TOGGLE FOLLOW================
+static Future<bool> toggleFollow(String token, int sellerId) async {
+  final res = await http.post(
+    Uri.parse("$baseUrl/follow/$sellerId"),
+    headers: {
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    },
+  );
+
+  final data = jsonDecode(res.body);
+  return data['following'];
+}
+
+// ============ADD REVIEW===============
+static Future<void> addReview(
+  String token,
+  int sellerId,
+  int rating,
+  String comment,
+) async {
+  await http.post(
+    Uri.parse("$baseUrl/review/$sellerId"),
+    headers: jsonHeader(token),
+    body: jsonEncode({
+      "rating": rating,
+      "comment": comment,
+    }),
+  );
+}
  // ================= CHAT =================
 static Future<List<dynamic>> getMessages(
   String token,
@@ -269,19 +428,23 @@ static Future<List<dynamic>> getMessages(
   return data is List ? data : [];
 }
   // ================= CART =================
-  static Future<bool> addToCart(String token, int productId) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/cart"),
-      headers: jsonHeader(token),
-      body: jsonEncode({
-        "product_id": productId,
-        "quantity": 1,
-      }),
-    );
+ static Future<void> addToCart(String token, int productId) async {
+  final res = await http.post(
+    Uri.parse("$baseUrl/cart"),
+    headers: {
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    },
+    body: jsonEncode({
+      "productId": productId,
+      "qty": 1,
+    }),
+  );
 
-    return res.statusCode >= 200 && res.statusCode < 300;
+  if (res.statusCode != 200) {
+    throw Exception("Cart error");
   }
-
+}
   static Future<List<dynamic>> getCart(String token) async {
     final res = await http.get(
       Uri.parse("$baseUrl/cart"),
@@ -300,6 +463,37 @@ static Future<List<dynamic>> getMessages(
 
     _safeDecode(res);
   }
+  // ❌ REMOVE
+static Future<void> removeFromCart(
+    String token, int productId) async {
+  await http.delete(
+    Uri.parse("$baseUrl/cart/$productId"),
+    headers: jsonHeader(token),
+  );
+}
+
+static Future<void> updateCartQty(
+    String token, int productId, int qty) async {
+  await http.put(
+    Uri.parse("$baseUrl/cart"),
+    headers: jsonHeader(token),
+    body: jsonEncode({
+      "productId": productId,
+      "qty": qty,
+    }),
+  );
+}
+// ================= TOGGLELIKE =================
+static Future<bool> toggleLike(String token, int productId) async {
+  final res = await http.post(
+    Uri.parse("$baseUrl/like"),
+    headers: jsonHeader(token),
+    body: jsonEncode({"productId": productId}),
+  );
+
+  final data = _safeDecode(res);
+  return data['liked']; // true/false
+}
 
   // ================= ORDERS =================
   static Future<List<dynamic>> getOrders(String token) async {
