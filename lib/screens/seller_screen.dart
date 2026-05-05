@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
-import 'add_product_screen.dart';
+import '../screens/add_product_screen.dart';
+
+
 
 class SellerScreen extends StatefulWidget {
   const SellerScreen({super.key});
@@ -96,17 +98,28 @@ class _SellerScreenState extends State<SellerScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await ApiService.updateProduct(
-                token!,
-                p['id'],
-                nameCtrl.text,
-                priceCtrl.text,
-                null,
-              );
+  try {
+    final success = await ApiService.updateProduct(
+      token: token!,
+      id: p['id'],
+      name: nameCtrl.text.trim(),
+      price: double.parse(priceCtrl.text.trim()),
+      image: null,
+    );
 
-              Navigator.pop(context);
-              fetchProducts();
-            },
+    Navigator.pop(context);
+
+    fetchProducts();
+
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Error: $e"),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+},
             child: const Text("Save"),
           ),
         ],

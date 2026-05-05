@@ -17,6 +17,10 @@ import 'screens/chat_screen.dart';
 import 'screens/edit_profile_screen.dart';
 import 'screens/my_products_screen.dart';
 import 'screens/seller_dashboard_screen.dart';
+import 'screens/edit_product_screen.dart';
+import 'screens/add_product_screen.dart';
+import '../services/supabase_storage.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -63,13 +67,16 @@ class MyApp extends StatelessWidget {
       '/edit-profile': (context) => const EditProfileScreen(),
       '/my-products': (context) => const MyProductsScreen(),
       '/edit-product': (context) {
-  final product = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+  final product =
+      ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
   return EditProductScreen(
     product: product,
-    token: "mysupersecretkey_2026_secure_app_!@#$", // ❗ مؤقت
   );
+  
 },
+
+  
 },
       // ================= PRODUCT DETAILS =================
       onGenerateRoute: (settings) {

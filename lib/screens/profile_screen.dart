@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
+import '../screens/followers_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,6 +15,10 @@ class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   Map<String, dynamic>? user;
   List products = [];
+  int followersCount = 0;
+int followingCount = 0;
+double rating = 0;
+List followers = [];
 
   bool loading = true;
   String baseUrl =
@@ -28,21 +33,29 @@ class _ProfileScreenState extends State<ProfileScreen>
     loadProfile();
   }
 
-  Future<void> loadProfile() async {
-    final token = await StorageService.getToken();
+ Future<void> loadProfile() async {
+  final token = await StorageService.getToken();
 
-    final res = await ApiService.getProfile(token!);
-    final id = res['user']['id'];
+  final res = await ApiService.getProfile(token!);
+  final id = res['user']['id'];
 
-    final seller =
-        await ApiService.getSeller(id);
+  final seller = await ApiService.getSeller(id);
+  final stats = await ApiService.getSellerStats(id);
+  final followersRes = await ApiService.getFollowers(id);
 
-    setState(() {
-      user = seller['seller'];
-      products = seller['products'];
-      loading = false;
-    });
-  }
+  setState(() {
+    user = seller['seller'];
+    products = seller['products'];
+
+    followers = followersRes;
+
+    followersCount = int.parse(stats['followers'].toString());
+    followingCount = int.parse(stats['following'].toString());
+    rating = double.parse(stats['rating'].toString());
+
+    loading = false;
+  });
+}
 
   // ================= IMAGE HELPER =================
   String fixImage(String? img) {
@@ -55,6 +68,8 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+                      final bg = user?['background_image'];
+                      final avatar = user?['image'];
     return Scaffold(
       backgroundColor: Colors.grey[100],
 
@@ -72,16 +87,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                       height: 200,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        image: DecorationImage(
-                          final bg = user?['background_image'];
-                              ? NetworkImage(
-                                  fixImage(user!['background_image']))
-                              : const AssetImage(
-                                      "assets/cover.jpg")
-                                  as ImageProvider,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+  image: DecorationImage(
+    image: bg != null
+        ? NetworkImage(bg)
+        : const AssetImage("assets/cover.jpg")
+            as ImageProvider,
+    fit: BoxFit.cover,
+  ),
+),
+
                     ),
 
                     Positioned(
@@ -131,15 +145,26 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                 // ================= STATS =================
                 Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.spaceEvenly,
-                  children: [
+  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  children: [
 
-                    _stat("Followers", "120"),
-                    _stat("Following", "80"),
-                    _stat("Rating", "4.5 ⭐"),
-                  ],
-                ),
+    GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FollowersScreen(sellerId: user!['id'],),
+          ),
+        );
+      },
+      child: _stat("Followers", followersCount.toString()),
+    ),
+
+    _stat("Following", followingCount.toString()),
+
+    _stat("Rating", rating.toStringAsFixed(1) + " ⭐"),
+  ],
+),
 
                 const SizedBox(height: 10),
 

@@ -132,18 +132,23 @@ setState(() {
         children: [
            UserAccountsDrawerHeader(
   decoration: const BoxDecoration(color: Colors.deepPurple),
-  accountName: Text(
-  userData != null ? userData!['name'] ?? "User" : "User",
-),
-  accountEmail: Text(userData?['email'] ?? ""),
 
-  currentAccountPicture: CircleAvatar(
-    backgroundImage: userData?['image'] != null
-        ? NetworkImage(userData!['image'])
-        : null,
-    child: userData?['image'] == null
-        ? const Icon(Icons.person, color: Colors.deepPurple)
-        : null,
+  accountName: Text(
+    userData?['name'] ?? "User",
+    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+  ),
+
+    accountEmail: const SizedBox(), // ❌ نحذف الإيميل
+
+  currentAccountPicture: GestureDetector(
+    onTap: () {
+      Navigator.pushNamed(context, '/profile');
+    },
+    child: CircleAvatar(
+      backgroundImage: userData?['image'] != null
+          ? NetworkImage(userData!['image'])
+          : const AssetImage("assets/user.png") as ImageProvider,
+    ),
   ),
 ),
 
@@ -295,7 +300,7 @@ setState(() {
                 children: [
 
                   // NAME
-                  GestureDetector(
+                 GestureDetector(
   onTap: () {
     Navigator.push(
       context,
@@ -308,34 +313,29 @@ setState(() {
   },
   child: Row(
     children: [
-      const Icon(Icons.store, size: 14, color: Colors.grey),
-      const SizedBox(width: 5),
+
+      CircleAvatar(
+        radius: 14,
+        backgroundImage: product['seller_image'] != null
+            ? NetworkImage(product['seller_image'])
+            : const AssetImage("assets/user.png") as ImageProvider,
+      ),
+
+      const SizedBox(width: 8),
+
       Expanded(
         child: Text(
           product['seller_name'] ?? "Unknown",
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontSize: 12,
+            fontWeight: FontWeight.w600,
             color: Colors.blue,
-            fontWeight: FontWeight.w500,
           ),
         ),
       ),
     ],
   ),
 ),
-
-                  const SizedBox(height: 5),
-
-                  // 🔥 SELLER NAME
-                  Text(
-                    product['seller_name'] ?? "Unknown seller",
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
 
                   const SizedBox(height: 5),
 
@@ -352,6 +352,11 @@ setState(() {
 
                   // BUTTON
                  // زر View
+    Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+
+    // VIEW BUTTON
     SizedBox(
       width: double.infinity,
       height: 30,
@@ -366,59 +371,74 @@ setState(() {
 
     const SizedBox(height: 5),
 
-    // زر Add to Cart
-    SizedBox(
-      width: double.infinity,
-      height: 30,
-      child: ElevatedButton(
-        onPressed: adding ? null : () => addToCart(product['id']),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.deepPurple,
+    // LIKE + CART
+    Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+
+        // ❤️ LIKE
+        Row(
+          children: [
+            GestureDetector(
+              onTap: () async {
+                final token = await StorageService.getToken();
+                if (token == null) return;
+
+                final result = await ApiService.toggleLike(
+                  token,
+                  product['id'],
+                );
+
+                setState(() {
+                  product['liked'] = result['liked'];
+                  product['likes_count'] = result['likes_count'];
+                });
+              },
+              child: Icon(
+                product['liked'] == true
+                    ? Icons.favorite
+                    : Icons.favorite_border,
+                color: Colors.red,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text("${product['likes_count'] ?? 0}"),
+          ],
         ),
-        child: adding
-            ? const SizedBox(
-                width: 15,
-                height: 15,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
-            : const Text("Add 🛒"),
-      ),
-    ),
-   Positioned(
-  top: 5,
-  right: 5,
-  child: GestureDetector(
-    onTap: () async {
-      final token = await StorageService.getToken();
-      if (token == null) return;
 
-      final result = await ApiService.toggleLike(
-        token,
-        product['id'],
-      );
-
-      setState(() {
-        product['liked'] = result;
-      });
-    },
-    child: Icon(
-      product['liked'] == true
-          ? Icons.favorite
-          : Icons.favorite_border,
-      color: Colors.red,
+        // 🛒 CART (small)
+        SizedBox(
+          height: 28,
+          child: ElevatedButton(
+            onPressed: adding ? null : () => addToCart(product['id']),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              minimumSize: const Size(0, 0),
+            ),
+            child: const Text("🛒"),
+          ),
+        ),
+      ],
     ),
-  ),
-),
+
+    const SizedBox(height: 5),
+
+    const Icon(Icons.comment, size: 18, color: Colors.grey),
+  ],
+)
+              
+  
                 ],
               ),
-            )
+            
+      )
           ],
         ),
       ),
     );
+    
   }
 
   // ================= UI =================
@@ -428,9 +448,31 @@ setState(() {
       backgroundColor: Colors.grey[100],
 
       appBar: AppBar(
+        centerTitle: true,
         backgroundColor: Colors.deepPurple,
         elevation: 2,
-        title: const Text("Marketplace 🛒"),
+        title: Row(
+  mainAxisAlignment: MainAxisAlignment.center,
+  children: [
+
+    // 🔥 زر البروفايل الصغير
+    GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(context, '/profile');
+      },
+      child: CircleAvatar(
+        radius: 16,
+        backgroundImage: userData?['image'] != null
+            ? NetworkImage(userData!['image'])
+            : const AssetImage("assets/user.png") as ImageProvider,
+      ),
+    ),
+
+    const SizedBox(width: 10),
+
+    const Text("Marketplace 🛒"),
+  ],
+),
 
         actions: isLoggedIn
             ? [

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
+import '../screens/edit_product_screen.dart';
+import '../screens/add_product_screen.dart';
+
 
 class SellerDashboardScreen extends StatefulWidget {
   const SellerDashboardScreen({super.key});
@@ -102,21 +105,22 @@ class _SellerDashboardScreenState
 
             // ✏️ EDIT BUTTON
             IconButton(
-              icon: const Icon(Icons.edit,
-                  color: Colors.blue),
-              onPressed: () {
-                Navigator.pushNamed(
-                  context,
-                  '/edit-product',
-                  arguments: product, // 🔥 هنا الإضافة
-                ).then((value) {
-                  // refresh بعد التعديل
-                  if (value == true) {
-                    loadDashboard();
-                  }
-                });
-              },
-            ),
+  icon: const Icon(Icons.edit, color: Colors.blue),
+  onPressed: () async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProductScreen(
+          product: product,
+        ),
+      ),
+    ).then((value) {
+      if (value == true) {
+        loadDashboard(); // 🔄 تحديث المنتجات بعد التعديل
+      }
+    });
+  },
+),
 
             // 🗑️ DELETE BUTTON (اختياري)
             IconButton(
@@ -227,15 +231,34 @@ class _SellerDashboardScreenState
                               child: Column(
                                 children: [
                                   ElevatedButton.icon(
-                                    onPressed: () {
-                                      Navigator.pushNamed(
-                                          context,
-                                          '/add-product');
-                                    },
-                                    icon: const Icon(Icons.add),
-                                    label: const Text(
-                                        "Add Product"),
-                                  ),
+  onPressed: () async {
+    final token = await StorageService.getToken();
+    final userId = await StorageService.getUserId();
+
+    if (token == null) {
+      Navigator.pushNamed(context, '/login');
+      return;
+    }
+    if (userId == null) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text("User not loaded")),
+  );
+  return;
+}
+
+    Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => AddProductScreen(
+      sellerId: userId,
+      token: token,
+    ),
+  ),
+);
+  },
+  icon: const Icon(Icons.add),
+  label: const Text("Add Product"),
+),
                                   const SizedBox(height: 10),
                                   ElevatedButton.icon(
                                     onPressed: () {

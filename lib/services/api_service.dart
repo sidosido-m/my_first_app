@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import '../services/supabase_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ApiService {
@@ -40,12 +41,25 @@ class ApiService {
   }
 }
 // ================= uploadBackground =================
-Future<String> uploadBackground(File file) async {
-  final fileName = "bg_${DateTime.now().millisecondsSinceEpoch}.jpg";
+static Future<String> uploadBackground(File file) async {
+  try {
+    final supabase = Supabase.instance.client;
 
-  await supabase.storage.from('backgrounds').upload(fileName, file);
+    final fileName =
+        "bg_${DateTime.now().millisecondsSinceEpoch}.jpg";
 
-  return supabase.storage.from('backgrounds').getPublicUrl(fileName);
+    await supabase.storage
+        .from('avatars') // ✅ نفس bucket
+        .upload(fileName, file);
+
+    return supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+  } catch (e) {
+    print("BG UPLOAD ERROR ❌ $e");
+    return "";
+  }
 }
   // ================= LOGIN =================
   static Future<Map<String, dynamic>> loginUser(
@@ -119,30 +133,48 @@ Future<String> uploadBackground(File file) async {
   }
 
   // ================= PROFILE WITH IMAGE =================
-static Future<bool> updateProfileWithImage(
-  String token,
-  String name,
-  String email,
-  String? password,
-  File? image,
-) async {
+static Future<bool> updateProfileWithImage({
+  required String token,
+  required String name,
+  required String email,
+  required String username,
+  String? oldPassword,
+  String? newPassword,
+  String? imageUrl,
+  String? bgUrl,
+}) async {
 
-  String? imageUrl;
+  final Map<String, dynamic> body = {
+    "name": name,
+    "email": email,
+    "username": username,
+  };
 
-  if (image != null) {
-    imageUrl = await uploadImage(image);
+  // ✅ password الصحيح
+  if (newPassword != null && newPassword.isNotEmpty) {
+    body["newPassword"] = newPassword;
+    body["oldPassword"] = oldPassword;
+  }
+
+  if (imageUrl != null) {
+    body["image"] = imageUrl;
+  }
+
+  if (bgUrl != null) {
+    body["background_image"] = bgUrl;
   }
 
   final res = await http.put(
     Uri.parse("$baseUrl/profile"),
-    headers: jsonHeader(token),
-    body: jsonEncode({
-      "name": name,
-      "email": email,
-      "password": password,
-      "image": imageUrl, // 🔥 مهم
-    }),
+    headers: {
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    },
+    body: jsonEncode(body),
   );
+
+  print("STATUS: ${res.statusCode}");
+  print("BODY: ${res.body}");
 
   return res.statusCode == 200;
 }
@@ -165,40 +197,46 @@ static Future<bool> updateProfileWithImage(
   return jsonDecode(res.body);
 }
 
-  // ================= ADD PRODUCT =================
-  static Future<bool> addProductWithImage({
-    required String name,
-    required double price,
-    required int sellerId,
-    required String token,
-    required File imageFile,
-  }) async {
-    var request = http.MultipartRequest(
-      'POST',
-      Uri.parse("$baseUrl/products"),
-    );
+  // ================= UPLOAD PRODUCT =================
+  static Future<String?> uploadProduct(File file) async {
+  try {
+    final fileName =
+        "product_${DateTime.now().millisecondsSinceEpoch}.jpg";
 
-    request.fields['name'] = name;
-    request.fields['price'] = price.toString();
-    request.fields['seller_id'] = sellerId.toString();
+    await SupabaseStorage.supabase.storage
+        .from('products')
+        .upload(fileName, file);
 
-    request.files.add(
-      await http.MultipartFile.fromPath('image', imageFile.path),
-    );
-
-    request.headers['Authorization'] = "Bearer $token";
-
-    final response = await request.send();
-    final body = await response.stream.bytesToString();
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return true;
-    }
-
-    print("UPLOAD ERROR: $body");
-    return false;
+    return SupabaseStorage.supabase.storage
+        .from('products')
+        .getPublicUrl(fileName);
+  } catch (e) {
+    print("UPLOAD PRODUCT ERROR ❌ $e");
+    return null;
   }
+}
+ // ================= ADD PRODUCT =================
+static Future<bool> addProduct({
+  required String name,
+  required double price,
+  required String token,
+  String? imageUrl,
+}) async {
+  final res = await http.post(
+    Uri.parse("$baseUrl/products"),
+    headers: {
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json",
+    },
+    body: jsonEncode({
+      "name": name,
+      "price": price,
+      "image": imageUrl,
+    }),
+  );
 
+  return res.statusCode == 200;
+}
   // ================= DELETE PRODUCT =================
   static Future<bool> deleteProduct(String token, int id) async {
     final res = await http.delete(
@@ -210,15 +248,15 @@ static Future<bool> updateProfileWithImage(
   }
 
 // ================= UPDATE PRODUCT =================
-static Future<void> updateProduct(
-  String token,
-  int productId,
-  String name,
-  String price,
+static Future<bool> updateProduct({
+  required String token,
+  required int id,
+  required String name,
+  required double price,
   String? image,
-) async {
+}) async {
   final res = await http.put(
-    Uri.parse("$baseUrl/products/$productId"),
+    Uri.parse("$baseUrl/products/$id"),
     headers: {
       "Authorization": "Bearer $token",
       "Content-Type": "application/json",
@@ -230,16 +268,16 @@ static Future<void> updateProduct(
     }),
   );
 
-  if (res.statusCode != 200) {
-    throw Exception("Update product failed");
-  }
+  return res.statusCode == 200;
 }
-  // ================= UPDATE PROFILE =================
-  static Future<void> updateProfile(
+
+// ================= UPDATE PROFILE =================
+static Future<void> updateProfile(
   String token,
   String name,
   String email,
   String? imageUrl,
+  String? backgroundUrl,
 ) async {
   final res = await http.put(
     Uri.parse("$baseUrl/profile"),
@@ -251,6 +289,7 @@ static Future<void> updateProduct(
       "name": name,
       "email": email,
       "image": imageUrl,
+      "background_image": backgroundUrl,
     }),
   );
 
@@ -266,6 +305,15 @@ static Future<void> updateProduct(
 
   return jsonDecode(res.body);
 }
+  // ================= SELLER state =================
+static Future<Map> getSellerStats(int id) async {
+  final res = await http.get(
+    Uri.parse("$baseUrl/seller-stats/$id"),
+  );
+
+  return jsonDecode(res.body);
+}
+
  // ================= SELLER PRODUCT =================
  static Future<List<dynamic>> getSellerProducts(int id) async {
   final res = await http.get(
@@ -484,17 +532,19 @@ static Future<void> updateCartQty(
   );
 }
 // ================= TOGGLELIKE =================
-static Future<bool> toggleLike(String token, int productId) async {
+static Future<Map<String, dynamic>> toggleLike(
+  String token,
+  int productId,
+) async {
   final res = await http.post(
-    Uri.parse("$baseUrl/like"),
-    headers: jsonHeader(token),
-    body: jsonEncode({"productId": productId}),
+    Uri.parse("$baseUrl/like/$productId"),
+    headers: {
+      "Authorization": "Bearer $token",
+    },
   );
 
-  final data = _safeDecode(res);
-  return data['liked']; // true/false
+  return jsonDecode(res.body);
 }
-
   // ================= ORDERS =================
   static Future<List<dynamic>> getOrders(String token) async {
     final res = await http.get(

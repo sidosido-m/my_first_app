@@ -1,34 +1,32 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // ✅ FIX
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
-import '../servise/supabase_storage.dart';
+import '../services/supabase_storage.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
 
   @override
-  State<EditProfileScreen> createState() =>
-      _EditProfileScreenState();
+  State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
+  // ================= CONTROLLERS =================
   final nameCtrl = TextEditingController();
   final userCtrl = TextEditingController();
   final emailCtrl = TextEditingController();
   final oldPassCtrl = TextEditingController();
   final newPassCtrl = TextEditingController();
 
+  // ================= IMAGES =================
   File? profileImage;
   File? coverImage;
 
+  // ================= STATE =================
   bool loading = false;
   String? token;
-
-  final supabase = Supabase.instance.client;
-
   Map<String, dynamic>? user;
 
   @override
@@ -42,7 +40,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     token = await StorageService.getToken();
 
     final res = await ApiService.getProfile(token!);
-
     user = res['user'];
 
     setState(() {
@@ -54,8 +51,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // ================= PICK PROFILE IMAGE =================
   Future<void> pickProfile() async {
-    final picked = await ImagePicker()
-        .pickImage(source: ImageSource.gallery);
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+    );
 
     if (picked != null) {
       setState(() {
@@ -66,8 +64,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // ================= PICK COVER IMAGE =================
   Future<void> pickCover() async {
-    final picked = await ImagePicker()
-        .pickImage(source: ImageSource.gallery);
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+    );
 
     if (picked != null) {
       setState(() {
@@ -76,56 +75,74 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  // ================= UPLOAD (AVATARS ONLY) =================
-  Future<String?> upload(File file, String type) async {
+  // ================= SAVE PROFILE =================
+  Future<void> save() async {
+    if (loading) return;
+
+    setState(() => loading = true);
+
     try {
-      final name =
-          "${type}_${DateTime.now().millisecondsSinceEpoch}.jpg";
+      final token = await StorageService.getToken();
+      if (token == null) throw Exception("Not logged in");
 
-      await supabase.storage
-          .from('avatars') // 🔥 ثابت كما طلبت
-          .upload(name, file);
+      // ================= OLD DATA =================
+      String? profileUrl = user?['image'];
+      String? bgUrl = user?['background_image'];
 
-      return supabase.storage
-          .from('avatars')
-          .getPublicUrl(name);
+      // ================= UPLOAD NEW PROFILE IMAGE =================
+      if (profileImage != null) {
+        profileUrl =
+            await SupabaseStorage.uploadAvatar(profileImage!);
+      }
+
+      // ================= UPLOAD NEW COVER IMAGE =================
+      if (coverImage != null) {
+        bgUrl =
+            await SupabaseStorage.uploadBackground(coverImage!);
+      }
+
+      print("PROFILE URL => $profileUrl");
+      print("BG URL => $bgUrl");
+
+      // ================= API CALL =================
+      final success = await ApiService.updateProfileWithImage(
+  token: token,
+  name: nameCtrl.text.trim(),
+  email: emailCtrl.text.trim(),
+  username: userCtrl.text.trim(),
+
+  oldPassword: oldPassCtrl.text.trim().isEmpty
+      ? null
+      : oldPassCtrl.text.trim(),
+
+  newPassword: newPassCtrl.text.trim().isEmpty
+      ? null
+      : newPassCtrl.text.trim(),
+
+  imageUrl: profileUrl,
+  bgUrl: bgUrl,
+);
+
+      if (!success) {
+        throw Exception("Update failed");
+      }
+
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
     } catch (e) {
-      debugPrint("UPLOAD ERROR: $e");
-      return null;
+      debugPrint("SAVE ERROR ❌ $e");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
+
+    setState(() => loading = false);
   }
-
-  // ================= SAVE =================
- Future<void> save() async {
-  setState(() => loading = true);
-
-  String? profileUrl = user?['image'];
-  String? bgUrl = user?['background_image'];
-
-  // ================= AVATAR =================
-  if (profileImage != null) {
-    profileUrl =
-        await SupabaseStorage.uploadAvatar(profileImage!);
-  }
-
-  // ================= BACKGROUND =================
-  if (coverImage != null) {
-    bgUrl =
-        await SupabaseStorage.uploadBackground(coverImage!);
-  }
-
-  await ApiService.updateProfile(
-    token!,
-    nameCtrl.text.trim(),
-    emailCtrl.text.trim(),
-    profileUrl,
-    bgUrl, // ⚠️ لازم تضيفها في API
-  );
-
-  setState(() => loading = false);
-
-  Navigator.pop(context, true);
-}
 
   // ================= UI =================
   @override
@@ -135,14 +152,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         : (user?['background_image'] != null
             ? NetworkImage(user!['background_image'])
             : const AssetImage("assets/cover.jpg"))
-        as ImageProvider;
+            as ImageProvider;
 
     final avatar = profileImage != null
         ? FileImage(profileImage!)
         : (user?['image'] != null
             ? NetworkImage(user!['image'])
             : const AssetImage("assets/user.png"))
-        as ImageProvider;
+            as ImageProvider;
 
     return Scaffold(
       appBar: AppBar(
@@ -171,7 +188,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ),
                         ),
                       ),
-
                       Positioned(
                         bottom: 10,
                         right: 10,
@@ -199,7 +215,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       radius: 50,
                       backgroundImage: avatar,
                     ),
-
                     Positioned(
                       bottom: 0,
                       right: 0,
@@ -230,19 +245,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       TextField(
                         controller: nameCtrl,
                         decoration: const InputDecoration(
-                            labelText: "Name"),
+                          labelText: "Name",
+                        ),
                       ),
 
                       TextField(
                         controller: userCtrl,
                         decoration: const InputDecoration(
-                            labelText: "Username"),
+                          labelText: "Username",
+                        ),
                       ),
 
                       TextField(
                         controller: emailCtrl,
                         decoration: const InputDecoration(
-                            labelText: "Email"),
+                          labelText: "Email",
+                        ),
                       ),
 
                       const SizedBox(height: 20),
@@ -251,14 +269,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         controller: oldPassCtrl,
                         obscureText: true,
                         decoration: const InputDecoration(
-                            labelText: "Old Password"),
+                          labelText: "Old Password",
+                        ),
                       ),
 
                       TextField(
                         controller: newPassCtrl,
                         obscureText: true,
                         decoration: const InputDecoration(
-                            labelText: "New Password"),
+                          labelText: "New Password",
+                        ),
                       ),
 
                       const SizedBox(height: 30),
@@ -272,7 +292,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.deepPurple,
                           ),
-                          child: const Text("Save Changes"),
+                          child: loading
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
+                              : const Text("Save Changes"),
                         ),
                       ),
                     ],
@@ -282,7 +306,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           ),
 
-          // ================= LOADING =================
+          // ================= LOADING OVERLAY =================
           if (loading)
             Container(
               color: Colors.black26,
