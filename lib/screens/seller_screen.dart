@@ -34,7 +34,9 @@ class _SellerScreenState extends State<SellerScreen> {
     if (sellerId != null) {
       await fetchProducts();
     } else {
-      setState(() => loading = false);
+      setState(() {
+  loading = false;
+});
     }
   }
 
@@ -48,7 +50,9 @@ class _SellerScreenState extends State<SellerScreen> {
         loading = false;
       });
     } catch (e) {
-      setState(() => loading = false);
+   setState(() {
+  loading = false;
+});
     }
   }
 

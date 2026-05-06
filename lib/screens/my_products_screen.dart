@@ -26,12 +26,16 @@ class _MyProductsScreenState
 
   Future<void> loadProducts() async {
     try {
-      setState(() => loading = true);
+      setState(() {
+  loading = true;
+});
 
       token = await StorageService.getToken();
 
       if (token == null) {
-        setState(() => loading = false);
+        setState(() {
+  loading = false;
+});
         return;
       }
 
@@ -43,7 +47,9 @@ class _MyProductsScreenState
         loading = false;
       });
     } catch (e) {
-      setState(() => loading = false);
+   setState(() {
+  loading = false;
+});
       debugPrint("MY PRODUCTS ERROR ❌ $e");
     }
   }

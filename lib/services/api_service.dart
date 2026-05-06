@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import '../services/supabase_storage.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http_parser/http_parser.dart';
+
+
 
 class ApiService {
   static const String baseUrl = "https://my-server-0xa0.onrender.com";
@@ -18,48 +19,29 @@ class ApiService {
     };
   }
   // ================= uploadImage =================
-  static Future<String?> uploadImage(File file) async {
-  try {
-    final supabase = Supabase.instance.client;
+static Future<String?> uploadImage(File file) async {
+  final uri = Uri.parse("$baseUrl/upload");
 
-    final fileName =
-        "${DateTime.now().millisecondsSinceEpoch}.jpg";
+  final request = http.MultipartRequest("POST", uri);
 
-    await supabase.storage
-        .from('avatars')
-        .upload(fileName, file);
+  request.files.add(
+    await http.MultipartFile.fromPath(
+      "image",
+      file.path,
+    ),
+  );
 
-    final url = supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName);
+  final response = await request.send();
 
-    return url;
-
-  } catch (e) {
-    print("UPLOAD ERROR ❌ $e");
-    return null;
+  if (response.statusCode != 200) {
+    throw Exception("Upload failed");
   }
-}
-// ================= uploadBackground =================
-static Future<String> uploadBackground(File file) async {
-  try {
-    final supabase = Supabase.instance.client;
 
-    final fileName =
-        "bg_${DateTime.now().millisecondsSinceEpoch}.jpg";
+  final resBody = await response.stream.bytesToString();
 
-    await supabase.storage
-        .from('avatars') // ✅ نفس bucket
-        .upload(fileName, file);
+  final data = jsonDecode(resBody);
 
-    return supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName);
-
-  } catch (e) {
-    print("BG UPLOAD ERROR ❌ $e");
-    return "";
-  }
+  return data["url"];
 }
   // ================= LOGIN =================
   static Future<Map<String, dynamic>> loginUser(
@@ -150,19 +132,21 @@ static Future<bool> updateProfileWithImage({
     "username": username,
   };
 
-  // ✅ password الصحيح
   if (newPassword != null && newPassword.isNotEmpty) {
     body["newPassword"] = newPassword;
     body["oldPassword"] = oldPassword;
   }
 
-  if (imageUrl != null) {
+  if (imageUrl != null && imageUrl.isNotEmpty) {
     body["image"] = imageUrl;
   }
 
-  if (bgUrl != null) {
+  if (bgUrl != null && bgUrl.isNotEmpty) {
     body["background_image"] = bgUrl;
   }
+
+  print("SENDING DATA:");
+  print(body);
 
   final res = await http.put(
     Uri.parse("$baseUrl/profile"),
@@ -176,7 +160,9 @@ static Future<bool> updateProfileWithImage({
   print("STATUS: ${res.statusCode}");
   print("BODY: ${res.body}");
 
-  return res.statusCode == 200;
+  final data = jsonDecode(res.body);
+
+  return res.statusCode == 200 && data["success"] == true;
 }
 
   // ================= PRODUCTS =================
@@ -197,24 +183,6 @@ static Future<bool> updateProfileWithImage({
   return jsonDecode(res.body);
 }
 
-  // ================= UPLOAD PRODUCT =================
-  static Future<String?> uploadProduct(File file) async {
-  try {
-    final fileName =
-        "product_${DateTime.now().millisecondsSinceEpoch}.jpg";
-
-    await SupabaseStorage.supabase.storage
-        .from('products')
-        .upload(fileName, file);
-
-    return SupabaseStorage.supabase.storage
-        .from('products')
-        .getPublicUrl(fileName);
-  } catch (e) {
-    print("UPLOAD PRODUCT ERROR ❌ $e");
-    return null;
-  }
-}
  // ================= ADD PRODUCT =================
 static Future<bool> addProduct({
   required String name,

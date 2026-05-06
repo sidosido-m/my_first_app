@@ -25,7 +25,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   // ================= LOAD PRODUCTS =================
   Future<void> load() async {
-    setState(() => loading = true);
+    setState(() {
+  loading = true;
+});
 
     try {
       final data = await ApiService.getProducts();
@@ -35,7 +37,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
         loading = false;
       });
     } catch (e) {
-      setState(() => loading = false);
+    setState(() {
+  loading = false;
+});
     }
   }
 

@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
+
 class AddProductScreen extends StatefulWidget {
   final int sellerId;
   final String token;
@@ -43,7 +44,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   // ================= ADD PRODUCT =================
-  Future<void> addProduct() async {
+ // ================= ADD PRODUCT =================
+Future<void> addProduct() async {
   if (!_formKey.currentState!.validate()) return;
 
   if (imageFile == null) {
@@ -62,22 +64,20 @@ class _AddProductScreenState extends State<AddProductScreen> {
     final token = await StorageService.getToken();
     if (token == null) throw Exception("No token found");
 
-    // 1️⃣ رفع الصورة إلى Supabase
+    // 🔥 رفع الصورة للسيرفر (بدون Supabase)
     final imageUrl = await ApiService.uploadImage(imageFile!);
 
     if (imageUrl == null) {
       throw Exception("Image upload failed");
     }
 
-    // 2️⃣ إرسال البيانات فقط (JSON)
+    // 🔥 إرسال المنتج
     final success = await ApiService.addProduct(
       name: nameCtrl.text.trim(),
       price: double.parse(priceCtrl.text.trim()),
       token: token,
-      imageUrl: imageUrl, // ✔️ هنا الصح
+      imageUrl: imageUrl,
     );
-
-    setState(() => loading = false);
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -91,9 +91,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
     } else {
       throw Exception("Failed to add product");
     }
-  } catch (e) {
-    setState(() => loading = false);
 
+  } catch (e) {
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text("Error: $e"),
@@ -101,6 +101,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
       ),
     );
   }
+
+  setState(() => loading = false);
 }
   @override
   void dispose() {

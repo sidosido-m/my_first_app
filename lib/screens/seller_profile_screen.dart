@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
-import '../utils/image_helper.dart';
-import '../services/supabase_storage.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+
 
 class SellerProfileScreen extends StatefulWidget {
   final int sellerId;
@@ -60,7 +59,9 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       });
     } catch (e) {
       print("ERROR: $e");
-      setState(() => loading = false);
+     setState(() {
+  loading = false;
+});
     }
   }
 

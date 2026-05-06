@@ -11,15 +11,12 @@ class SupabaseStorage {
           "avatar_${DateTime.now().millisecondsSinceEpoch}.jpg";
 
       await supabase.storage
-          .from('avatars')
-          .upload(
-            fileName,
-            file,
-            fileOptions: const FileOptions(
-              cacheControl: '3600',
-              upsert: true,
-            ),
-          );
+    .from('avatars')
+    .upload(
+      fileName,
+      file,
+      fileOptions: const FileOptions(upsert: true),
+    );
 
       return supabase.storage
           .from('avatars')
@@ -76,6 +73,7 @@ static Future<String?> uploadProduct(File file) async {
     return supabase.storage
         .from('products')
         .getPublicUrl(fileName);
+        
   } catch (e) {
     print("Product upload error ❌: $e");
     return null;

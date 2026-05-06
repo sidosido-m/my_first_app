@@ -36,7 +36,9 @@ class _FollowersScreenState extends State<FollowersScreen> {
       });
     } catch (e) {
       print("ERROR: $e");
-      setState(() => loading = false);
+      setState(() {
+  loading = false;
+});
     }
   }
 

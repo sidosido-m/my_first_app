@@ -50,7 +50,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    setState(() => loading = true);
+    setState(() {
+  loading = true;
+});
 
     try {
       final res = await ApiService.registerUser(
@@ -61,7 +63,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         "user",
       );
 
-      setState(() => loading = false);
+     setState(() {
+  loading = false;
+});
 
       if (res['success'] == true) {
   final otp = res['otp']; // 👈 خذ OTP
@@ -97,7 +101,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         msg(res['error'] ?? "Registration failed ❌");
       }
     } catch (e) {
-      setState(() => loading = false);
+      setState(() {
+  loading = false;
+});
       msg("Server error ❌");
     }
   }

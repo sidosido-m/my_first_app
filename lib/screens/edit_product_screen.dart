@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
-import '../services/supabase_storage.dart';
+
 
 class EditProductScreen extends StatefulWidget {
   final Map product;
@@ -57,32 +57,30 @@ Future<void> pickImage() async {
     final token = await StorageService.getToken();
     if (token == null) throw Exception("Not logged in");
 
-    // الصورة الحالية
-    String? imageUrl = widget.product['image'];
+    // ================= IMAGE =================
+    String? imageUrl = widget.product['image']?.toString();
 
-    // إذا اختار صورة جديدة
     if (newImage != null) {
-      imageUrl = await SupabaseStorage.uploadProduct(newImage!);
+      imageUrl = await ApiService.uploadImage(newImage!);
     }
 
+    // ================= UPDATE PRODUCT =================
     final success = await ApiService.updateProduct(
-      token: token,
       id: widget.product['id'],
       name: nameCtrl.text.trim(),
-      price: double.parse(priceCtrl.text.trim()),
-      image: imageUrl, // ✅ هنا التصحيح
+      price: double.tryParse(priceCtrl.text.trim()) ?? 0,
+      image: imageUrl,
+      token: token,
     );
 
-    if (!success) {
-      throw Exception("Update failed");
-    }
+    if (!success) throw Exception("Update failed");
 
     if (mounted) {
       Navigator.pop(context, true);
     }
 
   } catch (e) {
-    debugPrint("SAVE ERROR ❌ $e");
+    print("SAVE ERROR ❌ $e");
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -94,7 +92,6 @@ Future<void> pickImage() async {
 
   setState(() => loading = false);
 }
-
   @override
   Widget build(BuildContext context) {
     final image = newImage != null

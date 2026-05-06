@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
-import '../services/supabase_storage.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -53,6 +52,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> pickProfile() async {
     final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
+      imageQuality: 80,
     );
 
     if (picked != null) {
@@ -76,90 +76,79 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   // ================= SAVE PROFILE =================
-  Future<void> save() async {
-    if (loading) return;
+ Future<void> save() async {
+  if (loading) return;
 
-    setState(() => loading = true);
+  setState(() => loading = true);
 
-    try {
-      final token = await StorageService.getToken();
-      if (token == null) throw Exception("Not logged in");
+  try {
+    final token = await StorageService.getToken();
+    if (token == null) throw Exception("Not logged in");
 
-      // ================= OLD DATA =================
-      String? profileUrl = user?['image'];
-      String? bgUrl = user?['background_image'];
+    String? profileUrl;
+    String? bgUrl;
 
-      // ================= UPLOAD NEW PROFILE IMAGE =================
-      if (profileImage != null) {
-        profileUrl =
-            await SupabaseStorage.uploadAvatar(profileImage!);
-      }
-
-      // ================= UPLOAD NEW COVER IMAGE =================
-      if (coverImage != null) {
-        bgUrl =
-            await SupabaseStorage.uploadBackground(coverImage!);
-      }
-
-      print("PROFILE URL => $profileUrl");
-      print("BG URL => $bgUrl");
-
-      // ================= API CALL =================
-      final success = await ApiService.updateProfileWithImage(
-  token: token,
-  name: nameCtrl.text.trim(),
-  email: emailCtrl.text.trim(),
-  username: userCtrl.text.trim(),
-
-  oldPassword: oldPassCtrl.text.trim().isEmpty
-      ? null
-      : oldPassCtrl.text.trim(),
-
-  newPassword: newPassCtrl.text.trim().isEmpty
-      ? null
-      : newPassCtrl.text.trim(),
-
-  imageUrl: profileUrl,
-  bgUrl: bgUrl,
-);
-
-      if (!success) {
-        throw Exception("Update failed");
-      }
-
-      if (mounted) {
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      debugPrint("SAVE ERROR ❌ $e");
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error: $e"),
-          backgroundColor: Colors.red,
-        ),
-      );
+    // ================= PROFILE =================
+    if (profileImage != null) {
+      profileUrl = await ApiService.uploadImage(profileImage!);
+      print("NEW PROFILE: $profileUrl");
     }
 
-    setState(() => loading = false);
+    // ================= COVER =================
+    if (coverImage != null) {
+      bgUrl = await ApiService.uploadImage(coverImage!);
+      print("NEW BG: $bgUrl");
+    }
+
+    // ================= API =================
+    final success = await ApiService.updateProfileWithImage(
+      token: token,
+      name: nameCtrl.text.trim(),
+      email: emailCtrl.text.trim(),
+      username: userCtrl.text.trim(),
+      oldPassword: oldPassCtrl.text.trim().isEmpty
+          ? null
+          : oldPassCtrl.text.trim(),
+      newPassword: newPassCtrl.text.trim().isEmpty
+          ? null
+          : newPassCtrl.text.trim(),
+      imageUrl: profileUrl,
+      bgUrl: bgUrl,
+    );
+
+    if (!success) throw Exception("Update failed");
+
+    if (mounted) Navigator.pop(context, true);
+
+  } catch (e) {
+    print("SAVE ERROR ❌ $e");
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Error: $e"),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+
+  setState(() => loading = false);
+}
 
   // ================= UI =================
   @override
   Widget build(BuildContext context) {
     final cover = coverImage != null
-        ? FileImage(coverImage!)
-        : (user?['background_image'] != null
-            ? NetworkImage(user!['background_image'])
-            : const AssetImage("assets/cover.jpg"))
-            as ImageProvider;
+    ? FileImage(coverImage!)
+    : (user?['background_image'] != null &&
+            user!['background_image'].toString().isNotEmpty
+        ? NetworkImage(user!['background_image'])
+        : const AssetImage("assets/cover.jpg")) as ImageProvider;
 
     final avatar = profileImage != null
-        ? FileImage(profileImage!)
-        : (user?['image'] != null
-            ? NetworkImage(user!['image'])
-            : const AssetImage("assets/user.png"))
-            as ImageProvider;
+    ? FileImage(profileImage!)
+    : (user?['image'] != null && user!['image'].toString().isNotEmpty
+        ? NetworkImage(user!['image'])
+        : const AssetImage("assets/user.png")) as ImageProvider;
 
     return Scaffold(
       appBar: AppBar(

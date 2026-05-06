@@ -19,20 +19,15 @@ import 'screens/my_products_screen.dart';
 import 'screens/seller_dashboard_screen.dart';
 import 'screens/edit_product_screen.dart';
 import 'screens/add_product_screen.dart';
-import '../services/supabase_storage.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Supabase.initialize(
-    url: "https://YOUR_PROJECT.supabase.co",
-    anonKey: "YOUR_ANON_KEY",
-  );
-
-  runApp(const MyApp());
+ 
+  runApp( MyApp());
 }
 
 class MyApp extends StatelessWidget {

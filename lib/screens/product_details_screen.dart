@@ -88,15 +88,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
             // ================= IMAGE =================
             SizedBox(
-              height: 280,
-              width: double.infinity,
-              child: product['image'] != null
-                  ? Image.network(
-                      "$baseUrl/uploads/${product['image']}",
-                      fit: BoxFit.cover,
-                    )
-                  : const Center(child: Icon(Icons.image, size: 100)),
-            ),
+  height: 280,
+  width: double.infinity,
+  child: (product['image'] != null &&
+          product['image'].toString().isNotEmpty)
+      ? Image.network(
+          product['image'].toString().startsWith("http")
+              ? product['image']
+              : "$baseUrl/uploads/${product['image']}",
+          fit: BoxFit.cover,
+        )
+      : const Center(child: Icon(Icons.image, size: 100)),
+),
 
             const SizedBox(height: 15),
 
@@ -128,20 +131,76 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
             const SizedBox(height: 30),
 
-GestureDetector(
-  onTap: () {
-    Navigator.pushNamed(
-      context,
-      '/seller-profile',
-      arguments: product['seller_id'],
-    );
-  },
-  child: Text(
-    "Seller: ${product['seller_name'] ?? 'Unknown'}",
-    style: const TextStyle(
-      fontSize: 16,
-      color: Colors.blue,
-      decoration: TextDecoration.underline,
+Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 12),
+  child: GestureDetector(
+    onTap: () {
+      Navigator.pushNamed(
+        context,
+        '/seller-profile',
+        arguments: product['seller_id'],
+      );
+    },
+    child: Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: Offset(0, 3),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+
+          // 🖼️ AVATAR
+          CircleAvatar(
+            radius: 22,
+            backgroundImage: (product['seller_image'] != null &&
+                    product['seller_image'].toString().isNotEmpty)
+                ? NetworkImage(
+                    product['seller_image'].toString().startsWith("http")
+                        ? product['seller_image']
+                        : "$baseUrl/uploads/${product['seller_image']}",
+                  )
+                : const NetworkImage(
+                    "https://ui-avatars.com/api/?name=User",
+                  ),
+          ),
+
+          const SizedBox(width: 10),
+
+          // 👤 NAME + LABEL
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product['seller_name'] ?? "Unknown",
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Text(
+                  "Seller",
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ➡️ ARROW
+          const Icon(Icons.arrow_forward_ios, size: 16)
+        ],
+      ),
     ),
   ),
 ),

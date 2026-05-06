@@ -35,7 +35,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> login() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => loading = true);
+   setState(() {
+  loading = true;
+});
 
     try {
       final res = await ApiService.loginUser(
@@ -45,7 +47,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
 print("LOGIN RESPONSE: $res");
 
-      setState(() => loading = false);
+     setState(() {
+  loading = false;
+});
 
       if (res == null) {
         showMsg("Server error ❌");
@@ -88,7 +92,9 @@ print("LOGIN RESPONSE: $res");
 );
 
     } catch (e) {
-      setState(() => loading = false);
+      setState(() {
+  loading = false;
+});
       showMsg("Connection error ❌");
     }
   }

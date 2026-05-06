@@ -22,12 +22,16 @@ class _CartScreenState extends State<CartScreen> {
 
   // ================= LOAD CART =================
   Future<void> loadCart() async {
-    setState(() => loading = true);
+    setState(() {
+  loading = true;
+});
 
     final token = await StorageService.getToken();
 
     if (token == null) {
-      setState(() => loading = false);
+      setState(() {
+  loading = false;
+});
       return;
     }
 
@@ -48,7 +52,9 @@ class _CartScreenState extends State<CartScreen> {
         loading = false;
       });
     } catch (e) {
-      setState(() => loading = false);
+      setState(() {
+  loading = false;
+});
     }
   }
 

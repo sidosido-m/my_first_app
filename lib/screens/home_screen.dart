@@ -35,11 +35,13 @@ class _HomeScreenState extends State<HomeScreen> {
     
     final token = await StorageService.getToken();
     final userRole = await StorageService.getRole();
-    final res = await ApiService.getProfile(token!);
+    if (token != null) {
+  final res = await ApiService.getProfile(token);
 
-setState(() {
-  userData = res['user'];
-});
+  setState(() {
+    userData = res['user'];
+  });
+}
 
     setState(() {
       isLoggedIn = token != null;
@@ -76,7 +78,8 @@ setState(() {
 
   // ================= LOAD PRODUCTS =================
   Future<void> loadProducts() async {
-    setState(() => loading = true);
+  if (!mounted) return;
+setState(() => loading = true);
 
     try {
       final data = await ApiService.getProducts();
@@ -88,7 +91,9 @@ setState(() {
         loading = false;
       });
     } catch (e) {
-      setState(() => loading = false);
+     setState(() {
+  loading = false;
+});
     }
   }
 
@@ -133,21 +138,27 @@ setState(() {
            UserAccountsDrawerHeader(
   decoration: const BoxDecoration(color: Colors.deepPurple),
 
-  accountName: Text(
-    userData?['name'] ?? "User",
-    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+ accountName: Text(
+  userData?['name'] ?? "User",
+  style: const TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.bold,
   ),
+),
 
-    accountEmail: const SizedBox(), // ❌ نحذف الإيميل
-
+accountEmail: Text(
+  "@${userData?['username'] ?? ''}",
+  style: const TextStyle(color: Colors.white70),
+),
   currentAccountPicture: GestureDetector(
     onTap: () {
       Navigator.pushNamed(context, '/profile');
     },
     child: CircleAvatar(
-      backgroundImage: userData?['image'] != null
-          ? NetworkImage(userData!['image'])
-          : const AssetImage("assets/user.png") as ImageProvider,
+     backgroundImage: (userData?['image'] != null &&
+        userData!['image'].toString().isNotEmpty)
+    ? NetworkImage(userData!['image'])
+    : const AssetImage("assets/user.png") as ImageProvider,
     ),
   ),
 ),
@@ -244,202 +255,179 @@ setState(() {
 
   // ================= PRODUCT CARD =================
   Widget productCard(product) {
-    bool liked = product['liked'] ?? false;
-    bool isLiked = false;
-    return GestureDetector(
-      onTap: () => openProduct(product),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 6)
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+  bool liked = product['liked'] ?? false;
 
-            // IMAGE
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(15),
-                ),
-                child: 
-  Image.network(
-  product['image'] != null &&
-          product['image'].toString().isNotEmpty
-      ? product['image']
-      : "https://via.placeholder.com/150",
-  width: double.infinity,
-  fit: BoxFit.cover,
-
-  // 🔥 Loading جميل
-  loadingBuilder: (context, child, progress) {
-    if (progress == null) return child;
-    return const Center(
-      child: CircularProgressIndicator(),
-    );
-  },
-
-  // 🔥 Error fallback
-  errorBuilder: (_, __, ___) {
-    return const Center(
-      child: Icon(Icons.broken_image, size: 40),
-    );
-  },
-),
-              ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-
-                  // NAME
-                 GestureDetector(
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SellerProfileScreen(
-          sellerId: product['seller_id'],
-        ),
-      ),
-    );
-  },
-  child: Row(
-    children: [
-
-      CircleAvatar(
-        radius: 14,
-        backgroundImage: product['seller_image'] != null
-            ? NetworkImage(product['seller_image'])
-            : const AssetImage("assets/user.png") as ImageProvider,
-      ),
-
-      const SizedBox(width: 8),
-
-      Expanded(
-        child: Text(
-          product['seller_name'] ?? "Unknown",
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.blue,
-          ),
-        ),
-      ),
-    ],
-  ),
-),
-
-                  const SizedBox(height: 5),
-
-                  // PRICE
-                  Text(
-                    "${product['price']} DA",
-                    style: const TextStyle(
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(height: 5),
-
-                  // BUTTON
-                 // زر View
-    Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-
-    // VIEW BUTTON
-    SizedBox(
-      width: double.infinity,
-      height: 30,
-      child: ElevatedButton(
-        onPressed: () => openProduct(product),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.grey,
-        ),
-        child: const Text("View"),
-      ),
+  return Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: const [
+        BoxShadow(color: Colors.black12, blurRadius: 6),
+      ],
     ),
-
-    const SizedBox(height: 5),
-
-    // LIKE + CART
-    Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
 
-        // ❤️ LIKE
-        Row(
-          children: [
-            GestureDetector(
-              onTap: () async {
-                final token = await StorageService.getToken();
-                if (token == null) return;
+        // ================= HEADER (SELLER) =================
+        Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
 
-                final result = await ApiService.toggleLike(
-                  token,
-                  product['id'],
-                );
-
-                setState(() {
-                  product['liked'] = result['liked'];
-                  product['likes_count'] = result['likes_count'];
-                });
-              },
-              child: Icon(
-                product['liked'] == true
-                    ? Icons.favorite
-                    : Icons.favorite_border,
-                color: Colors.red,
-                size: 20,
+              CircleAvatar(
+                radius: 18,
+                backgroundImage: product['seller_image'] != null
+                    ? NetworkImage(product['seller_image'])
+                    : const AssetImage("assets/user.png") as ImageProvider,
               ),
-            ),
-            const SizedBox(width: 5),
-            Text("${product['likes_count'] ?? 0}"),
-          ],
+
+              const SizedBox(width: 10),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+
+                    Text(
+                      product['seller_name'] ?? "Unknown",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+
+                    const SizedBox(height: 3),
+
+                    // 🟢 DATE (NEW)
+                    Text(
+                      product['created_at'] ?? "recently",
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Icon(Icons.more_vert),
+            ],
+          ),
         ),
 
-        // 🛒 CART (small)
-        SizedBox(
-          height: 28,
-          child: ElevatedButton(
-            onPressed: adding ? null : () => addToCart(product['id']),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              minimumSize: const Size(0, 0),
-            ),
-            child: const Text("🛒"),
+        // ================= IMAGE =================
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            product['image'] ??
+                "https://via.placeholder.com/300",
+            height: 220,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        // ================= PRICE + VIEW BUTTON =================
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Row(
+            children: [
+
+              // PRICE
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  "${product['price']} DA",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ),
+
+              const Spacer(),
+
+              // VIEW BUTTON (🔥 stylish)
+              ElevatedButton(
+                onPressed: () => openProduct(product),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
+                ),
+                child: const Text("View"),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // ================= ACTIONS (LIKE + CART) =================
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: [
+
+              // ❤️ LIKE
+              IconButton(
+                onPressed: () async {
+                  final token = await StorageService.getToken();
+                  if (token == null) return;
+
+                  final result = await ApiService.toggleLike(
+                    token,
+                    product['id'],
+                  );
+
+                  setState(() {
+                    product['liked'] = result['liked'];
+                    product['likes_count'] = result['likes_count'];
+                  });
+                },
+                icon: Icon(
+                  liked ? Icons.favorite : Icons.favorite_border,
+                  color: Colors.red,
+                ),
+              ),
+
+              Text("${product['likes_count'] ?? 0}"),
+
+              const Spacer(),
+
+              // 🛒 CART
+              ElevatedButton.icon(
+                onPressed: adding
+                    ? null
+                    : () => addToCart(product['id']),
+                icon: const Icon(Icons.shopping_cart, size: 18),
+                label: const Text("Cart"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
     ),
-
-    const SizedBox(height: 5),
-
-    const Icon(Icons.comment, size: 18, color: Colors.grey),
-  ],
-)
-              
-  
-                ],
-              ),
-            
-      )
-          ],
-        ),
-      ),
-    );
-    
-  }
+  );
+}
 
   // ================= UI =================
   @override
@@ -462,9 +450,10 @@ setState(() {
       },
       child: CircleAvatar(
         radius: 16,
-        backgroundImage: userData?['image'] != null
-            ? NetworkImage(userData!['image'])
-            : const AssetImage("assets/user.png") as ImageProvider,
+        backgroundImage: (userData?['image'] != null &&
+        userData!['image'].toString().isNotEmpty)
+    ? NetworkImage(userData!['image'])
+    : const AssetImage("assets/user.png") as ImageProvider,
       ),
     ),
 

@@ -85,15 +85,18 @@ class _OtpScreenState extends State<OtpScreen> {
   Future<void> verifyOtp() async {
     if (otpController.text.isEmpty) return;
 
-    setState(() => loading = true);
-
+   setState(() {
+  loading = true;
+});
     try {
       final res = await ApiService.verifyOtp(
         widget.email,
         otpController.text.trim(),
       );
 
-      setState(() => loading = false);
+      setState(() {
+  loading = false;
+});
 
       if (!mounted) return;
 
@@ -115,7 +118,9 @@ class _OtpScreenState extends State<OtpScreen> {
         );
       }
     } catch (e) {
-      setState(() => loading = false);
+     setState(() {
+  loading = false;
+});
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -129,12 +134,16 @@ class _OtpScreenState extends State<OtpScreen> {
   Future<void> resendOtp() async {
     if (!canResend) return;
 
-    setState(() => loading = true);
+   setState(() {
+  loading = true;
+});
 
     try {
       await ApiService.resendOtp(widget.email);
 
-      setState(() => loading = false);
+      setState(() {
+  loading = false;
+});
 
       startTimer();
       startResendTimer(); // 🔥 مهم جداً
@@ -146,7 +155,9 @@ class _OtpScreenState extends State<OtpScreen> {
         ),
       );
     } catch (e) {
-      setState(() => loading = false);
+     setState(() {
+  loading = false;
+});
     }
   }
 
