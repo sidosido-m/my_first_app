@@ -34,7 +34,7 @@ static Future<String?> uploadImage(File file) async {
   final response = await request.send();
 
   if (response.statusCode != 200) {
-    throw Exception("Upload failed");
+    throw Exception("Upload failed: ${response.statusCode}");
   }
 
   final resBody = await response.stream.bytesToString();
@@ -372,6 +372,14 @@ static Future<void> sendMessage(
     }),
   );
 }
+
+static Future<void> markSeen(String token, int userId) async {
+  await http.put(
+    Uri.parse("$baseUrl/messages/seen/$userId"),
+    headers: jsonHeader(token),
+  );
+}
+
 // ==============FOLLOW================
 static Future<bool> followSeller(
     String token, int sellerId) async {

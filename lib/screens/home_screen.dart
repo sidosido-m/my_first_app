@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import 'seller_profile_screen.dart';
 import 'seller_dashboard_screen.dart';
+import '../screens/product_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -112,12 +113,13 @@ setState(() => loading = true);
 
   // ================= OPEN PRODUCT =================
   void openProduct(product) {
-    Navigator.pushNamed(
-      context,
-      '/product-details',
-      arguments: product,
-    );
-  }
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ProductDetailsScreen(product: product),
+    ),
+  );
+}
 
 // ================= LOAD CARTCOUNT =================
   Future<void> loadCartCount() async {
@@ -257,15 +259,23 @@ accountEmail: Text(
   Widget productCard(product) {
   bool liked = product['liked'] ?? false;
 
-  return Container(
+ return GestureDetector(
+  onTap: () => openProduct(product),
+
+  child: Container(
     margin: const EdgeInsets.only(bottom: 12),
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
-      boxShadow: const [
-        BoxShadow(color: Colors.black12, blurRadius: 6),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.08),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
       ],
     ),
+
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -276,11 +286,24 @@ accountEmail: Text(
           child: Row(
             children: [
 
-              CircleAvatar(
-                radius: 18,
-                backgroundImage: product['seller_image'] != null
-                    ? NetworkImage(product['seller_image'])
-                    : const AssetImage("assets/user.png") as ImageProvider,
+              // 🔵 Seller clickable
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SellerProfileScreen(
+                        sellerId: product['seller_id'],
+                      ),
+                    ),
+                  );
+                },
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundImage: product['seller_image'] != null
+                      ? NetworkImage(product['seller_image'])
+                      : const AssetImage("assets/user.png") as ImageProvider,
+                ),
               ),
 
               const SizedBox(width: 10),
@@ -300,7 +323,6 @@ accountEmail: Text(
 
                     const SizedBox(height: 3),
 
-                    // 🟢 DATE (NEW)
                     Text(
                       product['created_at'] ?? "recently",
                       style: const TextStyle(
@@ -312,35 +334,39 @@ accountEmail: Text(
                 ),
               ),
 
-              const Icon(Icons.more_vert),
+              const Icon(Icons.more_vert, size: 18),
             ],
           ),
         ),
 
-        // ================= IMAGE =================
+        // ================= IMAGE (PRO LEVEL) =================
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            product['image'] ??
-                "https://via.placeholder.com/300",
-            height: 220,
-            width: double.infinity,
-            fit: BoxFit.cover,
+          child: Hero(
+            tag: product['id'],
+            child: Image.network(
+              product['image'] ??
+                  "https://via.placeholder.com/300",
+              height: 220,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
 
         const SizedBox(height: 10),
 
-        // ================= PRICE + VIEW BUTTON =================
+        // ================= PRICE + VIEW =================
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(
             children: [
 
-              // PRICE
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 6),
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.green.shade50,
                   borderRadius: BorderRadius.circular(20),
@@ -356,7 +382,6 @@ accountEmail: Text(
 
               const Spacer(),
 
-              // VIEW BUTTON (🔥 stylish)
               ElevatedButton(
                 onPressed: () => openProduct(product),
                 style: ElevatedButton.styleFrom(
@@ -365,7 +390,9 @@ accountEmail: Text(
                     borderRadius: BorderRadius.circular(20),
                   ),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                 ),
                 child: const Text("View"),
               ),
@@ -375,7 +402,7 @@ accountEmail: Text(
 
         const SizedBox(height: 8),
 
-        // ================= ACTIONS (LIKE + CART) =================
+        // ================= ACTIONS =================
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
@@ -393,12 +420,18 @@ accountEmail: Text(
                   );
 
                   setState(() {
-                    product['liked'] = result['liked'];
-                    product['likes_count'] = result['likes_count'];
+                    final index = filtered.indexOf(product);
+                    filtered[index] = {
+                      ...product,
+                      'liked': result['liked'],
+                      'likes_count': result['likes_count'],
+                    };
                   });
                 },
                 icon: Icon(
-                  liked ? Icons.favorite : Icons.favorite_border,
+                  product['liked'] == true
+                      ? Icons.favorite
+                      : Icons.favorite_border,
                   color: Colors.red,
                 ),
               ),
@@ -409,9 +442,10 @@ accountEmail: Text(
 
               // 🛒 CART
               ElevatedButton.icon(
-                onPressed: adding
-                    ? null
-                    : () => addToCart(product['id']),
+                onPressed: () async {
+                  await addToCart(product['id']);
+                  await loadCartCount();
+                },
                 icon: const Icon(Icons.shopping_cart, size: 18),
                 label: const Text("Cart"),
                 style: ElevatedButton.styleFrom(
@@ -426,7 +460,8 @@ accountEmail: Text(
         ),
       ],
     ),
-  );
+  ),
+);
 }
 
   // ================= UI =================

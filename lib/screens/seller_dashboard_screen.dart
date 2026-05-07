@@ -15,9 +15,12 @@ class SellerDashboardScreen extends StatefulWidget {
 
 class _SellerDashboardScreenState
     extends State<SellerDashboardScreen> {
+      final ScrollController scrollController = ScrollController();
   Map<String, dynamic>? user;
   List latestProducts = [];
   String productsCount = "0";
+  List filtered = [];
+List products = [];
 
   bool loading = true;
   String? error;
@@ -55,6 +58,36 @@ class _SellerDashboardScreenState
       });
     }
   }
+  Future<void> addToCart(int productId) async {
+  final token = await StorageService.getToken();
+  if (token == null) return;
+
+  await ApiService.addToCart(token, productId);
+}
+
+Future<void> loadCartCount() async {
+  final token = await StorageService.getToken();
+  if (token == null) return;
+
+  final cart = await ApiService.getCart(token);
+
+  setState(() {
+    // إذا عندك cart badge
+  });
+}
+
+Future<void> loadProducts() async {
+  final token = await StorageService.getToken();
+  if (token == null) return;
+
+  final userId = await StorageService.getUserId();
+    if (userId == null) return;
+final data = await ApiService.getSellerProducts(userId);
+  setState(() {
+    products = data;
+    filtered = data; // 🔴 مهم
+  });
+}
 
   Widget statCard(String title, String value, IconData icon) {
     return Expanded(
@@ -83,66 +116,200 @@ class _SellerDashboardScreenState
   }
 
   Widget productCard(dynamic product) {
-    return Card(
-      margin: const EdgeInsets.symmetric(
-          horizontal: 10, vertical: 6),
-      child: ListTile(
-        leading: product['image'] != null
-            ? Image.network(
-                product['image'],
-                width: 50,
-                fit: BoxFit.cover,
-              )
-            : const Icon(Icons.image),
+  bool liked = product['liked'] ?? false;
 
-        title: Text(product['name'] ?? ""),
-        subtitle: Text("${product['price']} DA"),
-
-        // ================= ACTIONS =================
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-
-            // ✏️ EDIT BUTTON
-            IconButton(
-  icon: const Icon(Icons.edit, color: Colors.blue),
-  onPressed: () async {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => EditProductScreen(
-          product: product,
-        ),
+  return GestureDetector(
+    onTap: () {
+      Navigator.pushNamed(
+        context,
+        '/product-details',
+        arguments: product,
+      );
+    },
+    child: Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          )
+        ],
       ),
-    ).then((value) {
-      if (value == true) {
-        loadDashboard(); // 🔄 تحديث المنتجات بعد التعديل
-      }
-    });
-  },
-),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
 
-            // 🗑️ DELETE BUTTON (اختياري)
-            IconButton(
-              icon: const Icon(Icons.delete,
-                  color: Colors.red),
-              onPressed: () async {
-                final token =
-                    await StorageService.getToken();
+          // ================= SELLER HEADER =================
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
 
-                if (token == null) return;
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pushNamed(
+                      context,
+                      '/seller-profile',
+                      arguments: product['seller_id'],
+                    );
+                  },
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundImage: product['seller_image'] != null
+                        ? NetworkImage(product['seller_image'])
+                        : const AssetImage("assets/user.png")
+                            as ImageProvider,
+                  ),
+                ),
 
-                await ApiService.deleteProduct(
-                    token, product['id']);
+                const SizedBox(width: 10),
 
-                loadDashboard();
-              },
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product['seller_name'] ?? "Unknown",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        product['created_at'] ?? "recently",
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Icon(Icons.more_vert),
+              ],
             ),
-          ],
-        ),
+          ),
+
+          // ================= IMAGE =================
+          ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: Image.network(
+              product['image'] ??
+                  "https://via.placeholder.com/300",
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // ================= PRICE =================
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              "${product['price']} DA",
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // ================= ACTIONS =================
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            child: Row(
+              children: [
+
+                // ❤️ LIKE
+                IconButton(
+                  onPressed: () async {
+                    final token = await StorageService.getToken();
+                    if (token == null) return;
+
+                    final result = await ApiService.toggleLike(
+                      token,
+                      product['id'],
+                    );
+
+                    setState(() {
+                      final index = filtered.indexOf(product);
+                      if (index != -1) {
+                        filtered[index] = {
+                          ...product,
+                          'liked': result['liked'],
+                          'likes_count': result['likes_count'],
+                        };
+                      }
+                    });
+                  },
+                  icon: Icon(
+                    liked ? Icons.favorite : Icons.favorite_border,
+                    color: Colors.red,
+                  ),
+                ),
+
+                Text("${product['likes_count'] ?? 0}"),
+
+                const Spacer(),
+
+                // 🛒 CART
+                IconButton(
+                  icon: const Icon(Icons.shopping_cart),
+                  onPressed: () async {
+                    await addToCart(product['id']);
+                    await loadCartCount();
+                  },
+                ),
+
+                // ✏️ EDIT (إذا أنت صاحب المنتج فقط)
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.blue),
+                  onPressed: () async {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EditProductScreen(
+                          product: product,
+                        ),
+                      ),
+                    ).then((value) {
+                      if (value == true) {
+                        loadProducts();
+                      }
+                    });
+                  },
+                ),
+
+                // 🗑 DELETE
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () async {
+                    final token = await StorageService.getToken();
+                    if (token == null) return;
+
+                    await ApiService.deleteProduct(
+                        token, product['id']);
+
+                    loadProducts();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {

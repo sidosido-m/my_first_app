@@ -22,7 +22,7 @@ dependencies:
   # 📸 Image picker
   image_picker: ^1.0.7
 
-  
+  socket_io_client: ^2.0.3
 
   # 📦 Database (اختياري)
   sqflite: ^2.3.0
